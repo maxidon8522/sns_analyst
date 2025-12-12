@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { BarChart3 } from "lucide-react";
+
 import { InstagramMedia } from "@/lib/instagram";
 import { Button } from "@/components/ui/button";
 import {
@@ -69,9 +71,17 @@ export default function InstagramPage() {
     <div className="container mx-auto space-y-6 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Instagram投稿の取り込み</h1>
-        <Button onClick={() => window.location.reload()} variant="outline">
-          再読み込み
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild variant="default" className="gap-2">
+            <Link href="/analysis">
+              <BarChart3 className="h-4 w-4" />
+              分析レポートを見る
+            </Link>
+          </Button>
+          <Button onClick={() => window.location.reload()} variant="outline">
+            再読み込み
+          </Button>
+        </div>
       </div>
 
       <p className="text-muted-foreground">

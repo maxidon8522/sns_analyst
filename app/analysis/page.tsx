@@ -1,5 +1,7 @@
+import { differenceInHours } from 'date-fns';
 import { Sparkles } from 'lucide-react';
 
+import { GrowthChart } from '@/components/analysis/growth-chart';
 import { TagPerformanceChart, type TagPerformanceStat } from '@/components/analysis/tag-performance-chart';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -10,8 +12,8 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import type { AnalysisTags, Database } from '@/types/database';
 import { createServerSupabaseClient } from '@/utils/supabase/server';
+import type { AnalysisTags, Database } from '@/types/database';
 
 type VideoRow = Database['public']['Tables']['videos']['Row'];
 type MetricsRow = Pick<
@@ -161,20 +163,79 @@ export default async function AnalysisDashboardPage() {
 
   const { data, error } = await supabase
     .from('videos')
-    .select('id, caption, analysis_tags, metrics_logs(fetched_at, saves, views)')
-    .order('fetched_at', { foreignTable: 'metrics_logs', ascending: false });
+    .select('*, metrics_logs(*)')
+    .order('posted_at', { ascending: false });
 
   if (error) {
     throw new Error(error.message);
   }
 
-  const videos: VideoWithMetrics[] = data ?? [];
+  const videos: VideoWithMetrics[] = (data ?? []) as VideoWithMetrics[];
   const statsByCategory = buildTagStats(videos);
   const winningTags = buildWinningTags(statsByCategory, 6);
 
   const totalVideos = videos.length;
   const videosWithMetrics = videos.filter((video) => !!getLatestMetrics(video.metrics_logs)).length;
   const lastUpdatedAt = getLastUpdatedAt(videos);
+
+  const colorPalette = ['#2563eb', '#db2777', '#16a34a', '#d97706', '#9333ea'];
+  const sortedByPostedAt = [...videos].sort((a, b) => {
+    const aDate = parseDate(a.posted_at) ?? parseDate(a.created_at);
+    const bDate = parseDate(b.posted_at) ?? parseDate(b.created_at);
+    if (!aDate && !bDate) return 0;
+    if (!bDate) return -1;
+    if (!aDate) return 1;
+    return bDate.getTime() - aDate.getTime();
+  });
+  const recentVideos = sortedByPostedAt.slice(0, 5);
+
+  type GrowthDatum = { hour: number } & Record<string, number>;
+  const timePoints = [0, 3, 6, 12, 24, 48, 72];
+  const growthDataMap: Record<number, GrowthDatum> = {};
+  timePoints.forEach((hour) => {
+    growthDataMap[hour] = { hour };
+  });
+
+  const videoLegends = recentVideos.map((video, index) => ({
+    id: video.id,
+    title: formatVideoTitle(video.caption),
+    color: colorPalette[index % colorPalette.length],
+  }));
+
+  recentVideos.forEach((video) => {
+    const postedAt = parseDate(video.posted_at) ?? parseDate(video.created_at);
+    if (!postedAt) {
+      return;
+    }
+
+    video.metrics_logs?.forEach((log) => {
+      if (!log.fetched_at || typeof log.saves !== 'number') {
+        return;
+      }
+
+      const fetchedAt = parseDate(log.fetched_at);
+      if (!fetchedAt) {
+        return;
+      }
+
+      const diffHours = Math.max(0, differenceInHours(fetchedAt, postedAt));
+      if (diffHours > 74) {
+        return;
+      }
+
+      const targetPoint = timePoints.reduce((prev, curr) =>
+        Math.abs(curr - diffHours) < Math.abs(prev - diffHours) ? curr : prev,
+      timePoints[0]);
+
+      if (Math.abs(targetPoint - diffHours) <= 2) {
+        growthDataMap[targetPoint][video.id] = log.saves;
+      }
+    });
+  });
+
+  const growthChartData = Object.values(growthDataMap).sort(
+    (a, b) => a.hour - b.hour,
+  );
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-10">
@@ -186,6 +247,8 @@ export default async function AnalysisDashboardPage() {
           ハイパフォーマンスの兆しがある要素を素早く見つけましょう。
         </p>
       </header>
+
+      <GrowthChart data={growthChartData} videos={videoLegends} />
 
       <section className="grid gap-6 md:grid-cols-2">
         <Card>
@@ -355,6 +418,17 @@ const buildWinningTags = (
     .sort((a, b) => b.avgSaves - a.avgSaves)
     .slice(0, limit);
 
+const formatVideoTitle = (caption: string | null): string => {
+  if (!caption) {
+    return 'No Title';
+  }
+  const trimmed = caption.trim();
+  if (!trimmed) {
+    return 'No Title';
+  }
+  return trimmed.length > 10 ? `${trimmed.slice(0, 10)}...` : trimmed;
+};
+
 const getTagValue = (tags: AnalysisTags, path: TagPath): string | null => {
   const [section, field] = path;
   const sectionValue = tags[section];
@@ -420,3 +494,11 @@ const formatDate = (date: Date | null): string =>
 
 const formatMetric = (value: number): string =>
   Number.isFinite(value) ? (value % 1 === 0 ? value.toFixed(0) : value.toFixed(1)) : '0';
+
+const parseDate = (value: string | null | undefined): Date | null => {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+};
