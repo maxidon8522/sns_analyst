@@ -1,0 +1,6 @@
+{
+  "/analysis/page": "app/analysis/page.js",
+  "/api/instagram/fetch-posts/route": "app/api/instagram/fetch-posts/route.js",
+  "/instagram/page": "app/instagram/page.js",
+  "/videos/new/page": "app/videos/new/page.js"
+}

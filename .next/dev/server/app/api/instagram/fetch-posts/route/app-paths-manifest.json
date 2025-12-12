@@ -1,0 +1,3 @@
+{
+  "/api/instagram/fetch-posts/route": "app/api/instagram/fetch-posts/route.js"
+}
