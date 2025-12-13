@@ -57,6 +57,7 @@ export function PendingReviewList() {
       }
 
       if (data) {
+        console.log('Pending videos found:', data.length);
         setVideos(data);
       }
     } catch (err) {
