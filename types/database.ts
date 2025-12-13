@@ -79,6 +79,11 @@ export interface Database {
           analysis_tags: AnalysisTags | null;
           self_score: number | null;
           created_at: string;
+          reach: number | null;
+          shares: number | null;
+          profile_visits: number | null;
+          follows: number | null;
+          manual_input_done: boolean | null;
         };
         Insert: {
           id?: string;
@@ -90,6 +95,11 @@ export interface Database {
           analysis_tags?: AnalysisTags | null;
           self_score?: number | null;
           created_at?: string;
+          reach?: number | null;
+          shares?: number | null;
+          profile_visits?: number | null;
+          follows?: number | null;
+          manual_input_done?: boolean | null;
         };
         Update: {
           id?: string;
@@ -101,6 +111,11 @@ export interface Database {
           analysis_tags?: AnalysisTags | null;
           self_score?: number | null;
           created_at?: string;
+          reach?: number | null;
+          shares?: number | null;
+          profile_visits?: number | null;
+          follows?: number | null;
+          manual_input_done?: boolean | null;
         };
         Relationships: [];
       };

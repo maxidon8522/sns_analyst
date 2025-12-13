@@ -3,6 +3,7 @@ import { Sparkles } from 'lucide-react';
 
 import { GrowthChart } from '@/components/analysis/growth-chart';
 import { TagPerformanceChart, type TagPerformanceStat } from '@/components/analysis/tag-performance-chart';
+import { PendingReviewList } from '@/components/dashboard/pending-review-list';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -239,6 +240,7 @@ export default async function AnalysisDashboardPage() {
 
   return (
     <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-10">
+      <PendingReviewList />
       <header className="space-y-2">
         <p className="text-sm text-muted-foreground">タグ別パフォーマンス分析</p>
         <h1 className="text-3xl font-bold">どのタグが保存を生むのか？</h1>
