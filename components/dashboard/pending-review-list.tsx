@@ -117,7 +117,7 @@ export function PendingReviewList() {
             📝 振り返り入力待ち ({videos.length}件)
           </span>
           <span className="text-sm font-normal text-gray-600">
-            投稿から5日以上経過した動画はここに集まります。
+            投稿5日後以降の動画だけが表示されます。
           </span>
         </CardTitle>
         <Alert className="border-orange-200 bg-white/90">
