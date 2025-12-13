@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { differenceInHours } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -9,6 +8,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { GrowthChart } from "@/components/analysis/growth-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
+import { getBrowserSupabaseClient } from "@/utils/supabase/client";
 
 export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
@@ -21,11 +21,9 @@ export default function AnalysisPage() {
     avgReach: 0,
     topPost: null as any
   });
-  
-  const supabase = createClientComponentClient();
-
   useEffect(() => {
     async function loadData() {
+      const supabase = getBrowserSupabaseClient();
       try {
         const { data: videos, error: dbError } = await supabase
           .from('videos')
