@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { differenceInHours } from 'date-fns';
 import { Sparkles } from 'lucide-react';
 
