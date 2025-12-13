@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+export const dynamic = 'force-dynamic';
+
+import { useEffect, useState } from "react";
 import { differenceInHours } from "date-fns";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { GrowthChart } from "@/components/analysis/growth-chart";
@@ -26,11 +27,11 @@ export default function AnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
 
   useEffect(() => {
     async function loadData() {
       try {
+        const supabase = getBrowserSupabaseClient();
         console.log("Loading analysis data...");
         const { data: videos, error: dbError } = await supabase
           .from("videos")
@@ -54,7 +55,7 @@ export default function AnalysisPage() {
       }
     }
 
-    loadData();
+    void loadData();
   }, []);
 
   const processGrowthData = (videos: Video[]) => {
