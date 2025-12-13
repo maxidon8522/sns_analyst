@@ -8,23 +8,24 @@ import type { Database } from '../../types/database';
 
 type ClientOptions = SupabaseClientOptions<Database>;
 
-const getEnvValue = (key: string): string => {
-  const value = process.env[key];
+const requireEnv = (value: string | undefined, key: string): string => {
   if (!value) {
     throw new Error(`Missing required environment variable: ${key}`);
   }
-
   return value;
 };
 
 export const getSupabaseUrl = (): string =>
-  getEnvValue('NEXT_PUBLIC_SUPABASE_URL');
+  requireEnv(process.env.NEXT_PUBLIC_SUPABASE_URL, 'NEXT_PUBLIC_SUPABASE_URL');
 
 export const getSupabaseAnonKey = (): string =>
-  getEnvValue('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  requireEnv(
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  );
 
 export const getSupabaseServiceRoleKey = (): string =>
-  getEnvValue('SUPABASE_SERVICE_ROLE_KEY');
+  requireEnv(process.env.SUPABASE_SERVICE_ROLE_KEY, 'SUPABASE_SERVICE_ROLE_KEY');
 
 const baseOptions: ClientOptions = {
   auth: {
