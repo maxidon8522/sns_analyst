@@ -1,11 +1,16 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { createClient } from "@supabase/supabase-js";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type Video = {
   id: string;
@@ -19,7 +24,6 @@ export function PendingReviewList() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const supabase = createClientComponentClient();
 
   const [formData, setFormData] = useState({
     reach: "",
@@ -29,11 +33,10 @@ export function PendingReviewList() {
   });
 
   useEffect(() => {
-    fetchAllVideos();
+    void fetchAllVideos();
   }, []);
 
   const fetchAllVideos = async () => {
-    // ★修正: フィルタを外して、最新の動画を無条件に5件取得します
     const { data } = await supabase
       .from("videos")
       .select("*")
@@ -60,11 +63,10 @@ export function PendingReviewList() {
       alert("保存しました！");
       setEditingId(null);
       setFormData({ reach: "", shares: "", profile_visits: "", follows: "" });
-      fetchAllVideos();
+      void fetchAllVideos();
     }
   };
 
-  // ★修正: ローディング中でも、データがなくても、カード自体は必ず表示させる
   return (
     <Card className="border-orange-200 bg-orange-50 mb-8">
       <CardHeader>
@@ -79,7 +81,6 @@ export function PendingReviewList() {
         {videos.map((video) => (
           <div key={video.id} className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex gap-4 items-center mb-4">
-               {/* サムネイル表示 */}
                <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                   {video.thumbnail_url ? (
                     <img src={video.thumbnail_url} className="w-full h-full object-cover" />
