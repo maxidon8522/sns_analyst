@@ -2,17 +2,17 @@ name: Update Instagram Metrics
 
 on:
   schedule:
-    - cron: '0 * * * *'
-  workflow_dispatch:
+    # 3時間ごとに実行 (UTC時間)
+    - cron: '0 */3 * * *'
+  workflow_dispatch: # 手動実行ボタンを有効化
 
 jobs:
   trigger-update:
     runs-on: ubuntu-latest
     steps:
-      - name: Call metrics update endpoint
+      - name: Call Vercel Cron Endpoint
         run: |
-          curl -X POST "$CRON_ENDPOINT" \
-            -H "Authorization: Bearer $CRON_SECRET"
-        env:
-          CRON_ENDPOINT: ${{ secrets.CRON_ENDPOINT }}
-          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          curl -X POST ${{ secrets.CRON_ENDPOINT }} \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "Content-Type: application/json" \
+          --fail
