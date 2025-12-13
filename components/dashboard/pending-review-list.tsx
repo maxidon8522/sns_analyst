@@ -40,15 +40,15 @@ export function PendingReviewList() {
 
   const fetchPendingVideos = async () => {
     setLoading(true);
-    const fiveDaysAgo = new Date();
-    fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
+    // const fiveDaysAgo = new Date();
+    // fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
     try {
       const supabase = getBrowserSupabaseClient();
       const { data, error } = await supabase
         .from('videos')
         .select('id, caption, posted_at, thumbnail_url')
-        .lt('posted_at', fiveDaysAgo.toISOString())
+        // .lt('posted_at', fiveDaysAgo.toISOString())
         .eq('manual_input_done', false)
         .order('posted_at', { ascending: false });
 
