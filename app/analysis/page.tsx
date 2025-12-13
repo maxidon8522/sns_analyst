@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
+import { useEffect, useMemo, useState } from "react";
 import { differenceInHours } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { GrowthChart } from "@/components/analysis/growth-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
+import { getBrowserSupabaseClient } from "@/utils/supabase/client";
 
 type MetricsLog = {
   fetched_at: string;
@@ -26,7 +26,7 @@ export default function AnalysisPage() {
   const [error, setError] = useState<string | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
-  const supabase = createClientComponentClient();
+  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
 
   useEffect(() => {
     async function loadData() {
