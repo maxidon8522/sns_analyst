@@ -38,14 +38,15 @@ export function PendingReviewList() {
   const [formData, setFormData] = useState<FormState>(initialFormState);
 
   const fetchPendingVideos = async () => {
+    // ★修正: テスト用に「5日前」の制限を一時的にコメントアウトして無効化します
     setLoading(true);
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 5);
+    // const fiveDaysAgo = new Date();
+    // fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
     const { data, error } = await supabase
       .from('videos')
       .select('id, caption, posted_at, thumbnail_url')
-      .lt('posted_at', cutoff.toISOString())
+      // .lt('posted_at', fiveDaysAgo.toISOString())
       .eq('manual_input_done', false)
       .order('posted_at', { ascending: false });
 
