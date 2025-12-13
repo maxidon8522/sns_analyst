@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { differenceInDays } from 'date-fns';
 
 import { getBrowserSupabaseClient } from '@/utils/supabase/client';
@@ -31,7 +31,6 @@ const initialFormState: FormState = {
 };
 
 export function PendingReviewList() {
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -43,17 +42,27 @@ export function PendingReviewList() {
     // const fiveDaysAgo = new Date();
     // fiveDaysAgo.setDate(fiveDaysAgo.getDate() - 5);
 
-    const { data, error } = await supabase
-      .from('videos')
-      .select('id, caption, posted_at, thumbnail_url')
-      // .lt('posted_at', fiveDaysAgo.toISOString())
-      .eq('manual_input_done', false)
-      .order('posted_at', { ascending: false });
+    try {
+      const supabase = getBrowserSupabaseClient();
+      const { data, error } = await supabase
+        .from('videos')
+        .select('id, caption, posted_at, thumbnail_url')
+        // .lt('posted_at', fiveDaysAgo.toISOString())
+        .eq('manual_input_done', false)
+        .order('posted_at', { ascending: false });
 
-    if (!error && data) {
-      setVideos(data);
+      if (error) {
+        console.error('Pending List Error:', error);
+      }
+
+      if (data) {
+        setVideos(data);
+      }
+    } catch (err) {
+      console.error('Pending List Error:', err);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   useEffect(() => {
@@ -74,12 +83,19 @@ export function PendingReviewList() {
       manual_input_done: true,
     };
 
-    const { error } = await supabase.from('videos').update(payload).eq('id', id);
+    try {
+      const supabase = getBrowserSupabaseClient();
+      const { error } = await supabase.from('videos').update(payload).eq('id', id);
 
-    if (!error) {
-      setEditingId(null);
-      setFormData(initialFormState);
-      void fetchPendingVideos();
+      if (!error) {
+        setEditingId(null);
+        setFormData(initialFormState);
+        void fetchPendingVideos();
+      } else {
+        console.error('Pending Submit Error:', error);
+      }
+    } catch (err) {
+      console.error('Pending Submit Error:', err);
     }
   };
 
