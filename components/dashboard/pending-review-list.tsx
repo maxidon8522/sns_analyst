@@ -50,26 +50,30 @@ export function PendingReviewList() {
   const handleSubmit = async (id: string) => {
     try {
       console.log("Saving data for:", id);
+      const payload = {
+        reach: Number(formData.reach || 0),
+        shares: Number(formData.shares || 0),
+        profile_visits: Number(formData.profile_visits || 0),
+        follows: Number(formData.follows || 0)
+      };
 
-      const { error } = await supabase
-        .from("videos")
-        .update({
-          reach: Number(formData.reach || 0),
-          shares: Number(formData.shares || 0),
-          profile_visits: Number(formData.profile_visits || 0),
-          follows: Number(formData.follows || 0),
-          manual_input_done: true
-        })
-        .eq("id", id);
+      const response = await fetch("/api/manual-metrics", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ id, ...payload })
+      });
 
-      if (error) {
-        throw error;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error ?? "Unknown error");
       }
 
       alert("✅ 保存しました！");
       setEditingId(null);
       setFormData({ reach: "", shares: "", profile_visits: "", follows: "" });
-      fetchAllVideos();
+      void fetchAllVideos();
     } catch (err: any) {
       console.error("Save Error:", err);
       alert(`保存に失敗しました。\nエラー内容: ${err.message}`);
