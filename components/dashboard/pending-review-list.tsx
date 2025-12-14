@@ -48,22 +48,31 @@ export function PendingReviewList() {
   };
 
   const handleSubmit = async (id: string) => {
-    const { error } = await supabase
-      .from("videos")
-      .update({
-        reach: Number(formData.reach),
-        shares: Number(formData.shares),
-        profile_visits: Number(formData.profile_visits),
-        follows: Number(formData.follows),
-        manual_input_done: true
-      })
-      .eq("id", id);
+    try {
+      console.log("Saving data for:", id);
 
-    if (!error) {
-      alert("保存しました！");
+      const { error } = await supabase
+        .from("videos")
+        .update({
+          reach: Number(formData.reach || 0),
+          shares: Number(formData.shares || 0),
+          profile_visits: Number(formData.profile_visits || 0),
+          follows: Number(formData.follows || 0),
+          manual_input_done: true
+        })
+        .eq("id", id);
+
+      if (error) {
+        throw error;
+      }
+
+      alert("✅ 保存しました！");
       setEditingId(null);
       setFormData({ reach: "", shares: "", profile_visits: "", follows: "" });
-      void fetchAllVideos();
+      fetchAllVideos();
+    } catch (err: any) {
+      console.error("Save Error:", err);
+      alert(`保存に失敗しました。\nエラー内容: ${err.message}`);
     }
   };
 
@@ -114,12 +123,33 @@ export function PendingReviewList() {
                   <Input type="number" value={formData.follows} onChange={e => setFormData({...formData, follows: e.target.value})} />
                 </div>
                 <div className="col-span-2 flex gap-2 mt-2">
-                  <Button size="sm" variant="ghost" onClick={() => setEditingId(null)} className="w-full">キャンセル</Button>
-                  <Button size="sm" onClick={() => handleSubmit(video.id)} className="w-full">保存</Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setEditingId(null)}
+                    className="w-full"
+                  >
+                    キャンセル
+                  </Button>
+                  <Button
+                    size="sm"
+                    type="button"
+                    onClick={() => handleSubmit(video.id)}
+                    className="w-full"
+                  >
+                    保存
+                  </Button>
                 </div>
               </div>
             ) : (
-              <Button size="sm" variant="outline" className="w-full" onClick={() => setEditingId(video.id)}>
+              <Button
+                size="sm"
+                type="button"
+                variant="outline"
+                className="w-full"
+                onClick={() => setEditingId(video.id)}
+              >
                 数値を入力する
               </Button>
             )}
