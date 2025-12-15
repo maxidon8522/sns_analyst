@@ -33,9 +33,10 @@ const METRIC_LABELS: Record<MetricKey, string> = {
   comments: "コメント数"
 };
 
-const LONG_TERM_TARGET_DAYS = [3, 7, 14, 30, 90];
-const createEmptyLongTermData = () =>
-  LONG_TERM_TARGET_DAYS.map((day) => ({ day }));
+const LONG_TERM_RANGE_OPTIONS = [3, 7, 14, 30, 90];
+const DEFAULT_LONG_TERM_RANGE = 30;
+const createLongTermBaseline = (range: number) =>
+  Array.from({ length: range + 1 }, (_, day) => ({ day }));
 
 export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
@@ -43,7 +44,10 @@ export default function AnalysisPage() {
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
-  const [longTermData, setLongTermData] = useState<any[]>(createEmptyLongTermData());
+  const [longTermRange, setLongTermRange] = useState<number>(DEFAULT_LONG_TERM_RANGE);
+  const [longTermData, setLongTermData] = useState<any[]>(
+    createLongTermBaseline(DEFAULT_LONG_TERM_RANGE)
+  );
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("views");
   const [displayCount, setDisplayCount] = useState<number | "all">(5);
   const [stats, setStats] = useState({
@@ -66,7 +70,7 @@ export default function AnalysisPage() {
           setLoading(false);
           setGrowthData([]);
           setVideoLegends([]);
-          setLongTermData(createEmptyLongTermData());
+          setLongTermData(createLongTermBaseline(DEFAULT_LONG_TERM_RANGE));
           return;
         }
 
@@ -84,10 +88,13 @@ export default function AnalysisPage() {
   }, []);
 
   useEffect(() => {
-    if (!videos.length) return;
+    if (!videos.length) {
+      setLongTermData(createLongTermBaseline(longTermRange));
+      return;
+    }
     processGrowthData(videos, selectedMetric, displayCount);
-    processLongTermData(videos, selectedMetric, displayCount);
-  }, [videos, selectedMetric, displayCount]);
+    processLongTermData(videos, selectedMetric, displayCount, longTermRange);
+  }, [videos, selectedMetric, displayCount, longTermRange]);
 
   const calculateStats = (videos: any[]) => {
     const totalPosts = videos.length;
@@ -196,18 +203,20 @@ export default function AnalysisPage() {
   const processLongTermData = (
     videos: any[],
     metric: MetricKey,
-    count: number | "all"
+    count: number | "all",
+    range: number
   ) => {
     try {
       const limit = count === "all" ? videos.length : count;
       const recentVideos = videos.slice(0, limit);
+      const days = Array.from({ length: range + 1 }, (_, day) => day);
       const dataMap: Record<number, any> = {};
-      LONG_TERM_TARGET_DAYS.forEach((day) => {
+      days.forEach((day) => {
         dataMap[day] = { day };
       });
 
       if (!recentVideos.length) {
-        setLongTermData(createEmptyLongTermData());
+        setLongTermData(days.map((day) => dataMap[day]));
         return;
       }
 
@@ -216,31 +225,44 @@ export default function AnalysisPage() {
         if (!Array.isArray(logs) || logs.length === 0 || !video.posted_at) return;
         const postedAt = new Date(video.posted_at);
 
-        LONG_TERM_TARGET_DAYS.forEach((targetDay) => {
-          let closestLog: { log: any; diff: number } | null = null;
-
-          logs.forEach((log: any) => {
-            if (!log.fetched_at) return;
-            const diff = Math.abs(
-              differenceInDays(new Date(log.fetched_at), postedAt) - targetDay
-            );
-
-            if (!closestLog || diff < closestLog.diff) {
-              closestLog = { log, diff };
-            }
+        const enrichedLogs = logs
+          .filter((log: any) => log.fetched_at)
+          .map((log: any) => {
+            const fetchedDate = new Date(log.fetched_at);
+            return {
+              log,
+              dayDiff: Math.max(0, differenceInDays(fetchedDate, postedAt)),
+              fetchedMs: fetchedDate.getTime()
+            };
+          })
+          .sort((a: any, b: any) => {
+            if (a.dayDiff === b.dayDiff) return a.fetchedMs - b.fetchedMs;
+            return a.dayDiff - b.dayDiff;
           });
 
-          if (closestLog && closestLog.diff <= 1) {
-            const metricValue = Number(closestLog.log?.[metric]) || 0;
-            dataMap[targetDay][video.id] = metricValue;
+        if (!enrichedLogs.length) return;
+
+        days.forEach((day) => {
+          let selected: any = null;
+          for (let i = enrichedLogs.length - 1; i >= 0; i--) {
+            if (enrichedLogs[i].dayDiff <= day) {
+              selected = enrichedLogs[i];
+              break;
+            }
           }
+          if (!selected) {
+            selected = enrichedLogs[0];
+          }
+
+          const metricValue = Number(selected.log?.[metric]) || 0;
+          dataMap[day][video.id] = metricValue;
         });
       });
 
-      setLongTermData(LONG_TERM_TARGET_DAYS.map((day) => dataMap[day]));
+      setLongTermData(days.map((day) => dataMap[day]));
     } catch (error) {
       console.error(error);
-      setLongTermData(createEmptyLongTermData());
+      setLongTermData(createLongTermBaseline(range));
     }
   };
 
@@ -371,10 +393,32 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      <div className="space-y-4">
-        <h2 className="text-lg font-semibold tracking-tight">
-          長期分析 ({metricLabel}推移)
-        </h2>
+      <div className="space-y-4 mt-12">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <h2 className="text-lg font-semibold tracking-tight">長期推移分析</h2>
+          <div className="flex flex-col gap-4 md:flex-row">
+            <div className="space-y-1">
+              <Label htmlFor="long-term-range" className="text-sm font-medium text-muted-foreground">
+                分析期間
+              </Label>
+              <Select
+                value={String(longTermRange)}
+                onValueChange={(value) => setLongTermRange(Number(value))}
+              >
+                <SelectTrigger id="long-term-range" className="w-40">
+                  <SelectValue placeholder="期間を選択" />
+                </SelectTrigger>
+                <SelectContent>
+                  {LONG_TERM_RANGE_OPTIONS.map((option) => (
+                    <SelectItem key={option} value={String(option)}>
+                      {option}日
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
         <LongTermChart
           data={longTermData}
           videos={videoLegends}

@@ -26,23 +26,27 @@ type LongTermChartProps = {
 };
 
 export function LongTermChart({ data, videos, metricLabel }: LongTermChartProps) {
-  const hasSeriesData = data?.some((entry) => Object.keys(entry).length > 1);
-
   return (
     <Card className="w-full">
       <CardHeader>
         <CardTitle>長期推移分析 (3日〜3ヶ月)</CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="relative h-[350px] w-full">
+        <div className="h-[350px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="day"
-                unit="日目"
+                unit="日"
                 tick={{ fontSize: 12 }}
-                tickFormatter={(val) => `${val}日目`}
+                tickFormatter={(val) => `${val}日`}
+                label={{
+                  value: '日数 (day)',
+                  position: 'insideBottomRight',
+                  offset: -5,
+                  style: { fontSize: 12 },
+                }}
               />
               <YAxis
                 tick={{ fontSize: 12 }}
@@ -55,7 +59,7 @@ export function LongTermChart({ data, videos, metricLabel }: LongTermChartProps)
                 }}
               />
               <Tooltip
-                labelFormatter={(val) => `${val} 日目`}
+                labelFormatter={(val) => `投稿から ${val} 日目`}
                 formatter={(value) => [value, metricLabel]}
                 contentStyle={{
                   borderRadius: '8px',
@@ -78,11 +82,6 @@ export function LongTermChart({ data, videos, metricLabel }: LongTermChartProps)
               ))}
             </LineChart>
           </ResponsiveContainer>
-          {!hasSeriesData && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-muted-foreground">
-              長期データ収集中...
-            </div>
-          )}
         </div>
       </CardContent>
     </Card>
