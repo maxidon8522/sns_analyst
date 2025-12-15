@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { differenceInHours } from "date-fns";
+import { differenceInDays, differenceInHours } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,6 +15,7 @@ import {
   SelectValue
 } from "@/components/ui/select";
 import { GrowthChart } from "@/components/analysis/growth-chart";
+import { LongTermChart } from "@/components/analysis/long-term-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
 
@@ -32,12 +33,17 @@ const METRIC_LABELS: Record<MetricKey, string> = {
   comments: "コメント数"
 };
 
+const LONG_TERM_TARGET_DAYS = [3, 7, 14, 30, 90];
+const createEmptyLongTermData = () =>
+  LONG_TERM_TARGET_DAYS.map((day) => ({ day }));
+
 export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
+  const [longTermData, setLongTermData] = useState<any[]>(createEmptyLongTermData());
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("views");
   const [displayCount, setDisplayCount] = useState<number | "all">(5);
   const [stats, setStats] = useState({
@@ -60,6 +66,7 @@ export default function AnalysisPage() {
           setLoading(false);
           setGrowthData([]);
           setVideoLegends([]);
+          setLongTermData(createEmptyLongTermData());
           return;
         }
 
@@ -79,6 +86,7 @@ export default function AnalysisPage() {
   useEffect(() => {
     if (!videos.length) return;
     processGrowthData(videos, selectedMetric, displayCount);
+    processLongTermData(videos, selectedMetric, displayCount);
   }, [videos, selectedMetric, displayCount]);
 
   const calculateStats = (videos: any[]) => {
@@ -182,6 +190,57 @@ export default function AnalysisPage() {
       setGrowthData(Object.values(growthDataMap).sort((a: any, b: any) => a.hour - b.hour));
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const processLongTermData = (
+    videos: any[],
+    metric: MetricKey,
+    count: number | "all"
+  ) => {
+    try {
+      const limit = count === "all" ? videos.length : count;
+      const recentVideos = videos.slice(0, limit);
+      const dataMap: Record<number, any> = {};
+      LONG_TERM_TARGET_DAYS.forEach((day) => {
+        dataMap[day] = { day };
+      });
+
+      if (!recentVideos.length) {
+        setLongTermData(createEmptyLongTermData());
+        return;
+      }
+
+      recentVideos.forEach((video) => {
+        const logs = video.metrics_logs;
+        if (!Array.isArray(logs) || logs.length === 0 || !video.posted_at) return;
+        const postedAt = new Date(video.posted_at);
+
+        LONG_TERM_TARGET_DAYS.forEach((targetDay) => {
+          let closestLog: { log: any; diff: number } | null = null;
+
+          logs.forEach((log: any) => {
+            if (!log.fetched_at) return;
+            const diff = Math.abs(
+              differenceInDays(new Date(log.fetched_at), postedAt) - targetDay
+            );
+
+            if (!closestLog || diff < closestLog.diff) {
+              closestLog = { log, diff };
+            }
+          });
+
+          if (closestLog && closestLog.diff <= 1) {
+            const metricValue = Number(closestLog.log?.[metric]) || 0;
+            dataMap[targetDay][video.id] = metricValue;
+          }
+        });
+      });
+
+      setLongTermData(LONG_TERM_TARGET_DAYS.map((day) => dataMap[day]));
+    } catch (error) {
+      console.error(error);
+      setLongTermData(createEmptyLongTermData());
     }
   };
 
@@ -311,6 +370,17 @@ export default function AnalysisPage() {
           />
         </div>
       )}
+
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold tracking-tight">
+          長期分析 ({metricLabel}推移)
+        </h2>
+        <LongTermChart
+          data={longTermData}
+          videos={videoLegends}
+          metricLabel={metricLabel}
+        />
+      </div>
     </div>
   );
 }
