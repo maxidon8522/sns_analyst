@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
 
+import { createClient } from '@supabase/supabase-js';
+
 import { getMediaInsights } from '@/lib/instagram';
-import { createServerSupabaseClient } from '@/utils/supabase/server';
+import type { Database } from '@/types/database';
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -9,7 +11,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const supabase = createServerSupabaseClient();
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    console.error('Supabase environment variables are missing for cron task.');
+    return NextResponse.json(
+      { error: 'Server configuration error' },
+      { status: 500 },
+    );
+  }
+
+  const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
 
   try {
     const thirtyDaysAgo = new Date();
@@ -25,25 +38,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ message: 'No videos to update' });
     }
 
-    const results: Array<{ id: string; status: string }> = [];
+    const results: Array<{ id: string; status: string; data?: unknown }> = [];
     const errors: Array<{ id: string; error: string }> = [];
 
     for (const video of videos) {
       try {
         const insights = await getMediaInsights(video.ig_media_id);
+        const metrics = insights ?? {
+          likes: 0,
+          comments: 0,
+          views: 0,
+          reach: 0,
+          saved: 0,
+        };
 
-        if (insights) {
-          await supabase.from('metrics_logs').insert({
-            video_id: video.id,
-            views: insights.views,
-            likes: 0,
-            saves: insights.saved,
-            comments: 0,
-            fetched_at: new Date().toISOString(),
-          });
-          results.push({ id: video.ig_media_id, status: 'updated' });
-        } else {
-          errors.push({ id: video.ig_media_id, error: 'No data from API' });
+        await supabase.from('metrics_logs').insert({
+          video_id: video.id,
+          views: metrics.views,
+          likes: metrics.likes,
+          comments: metrics.comments,
+          saves: metrics.saved,
+          fetched_at: new Date().toISOString(),
+        });
+        results.push({ id: video.ig_media_id, status: 'updated', data: metrics });
+
+        if (!insights) {
+          console.warn(
+            `No insight data returned for media ${video.ig_media_id}. Default metrics stored.`,
+          );
         }
       } catch (err) {
         console.error(`Error updating video ${video.ig_media_id}:`, err);
