@@ -6,6 +6,14 @@ import { differenceInHours } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { GrowthChart } from "@/components/analysis/growth-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
@@ -15,11 +23,23 @@ const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
+type MetricKey = "views" | "saves" | "likes" | "comments";
+
+const METRIC_LABELS: Record<MetricKey, string> = {
+  views: "再生数",
+  saves: "保存数",
+  likes: "いいね数",
+  comments: "コメント数"
+};
+
 export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [growthData, setGrowthData] = useState<any[]>([]);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
+  const [videos, setVideos] = useState<any[]>([]);
+  const [selectedMetric, setSelectedMetric] = useState<MetricKey>("views");
+  const [displayCount, setDisplayCount] = useState<number | "all">(5);
   const [stats, setStats] = useState({
     totalPosts: 0,
     avgSaves: 0,
@@ -29,20 +49,22 @@ export default function AnalysisPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const { data: videos, error: dbError } = await supabase
+        const { data: fetchedVideos, error: dbError } = await supabase
           .from('videos')
           .select('*, metrics_logs(*)')
           .order('posted_at', { ascending: false });
 
         if (dbError) throw dbError;
 
-        if (!videos || videos.length === 0) {
+        if (!fetchedVideos || fetchedVideos.length === 0) {
           setLoading(false);
+          setGrowthData([]);
+          setVideoLegends([]);
           return;
         }
 
-        processGrowthData(videos);
-        calculateStats(videos);
+        setVideos(fetchedVideos);
+        calculateStats(fetchedVideos);
 
       } catch (err: any) {
         console.error("Analysis Load Error:", err);
@@ -53,6 +75,11 @@ export default function AnalysisPage() {
     }
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (!videos.length) return;
+    processGrowthData(videos, selectedMetric, displayCount);
+  }, [videos, selectedMetric, displayCount]);
 
   const calculateStats = (videos: any[]) => {
     const totalPosts = videos.length;
@@ -87,15 +114,46 @@ export default function AnalysisPage() {
     });
   };
 
-  const processGrowthData = (videos: any[]) => {
+  const processGrowthData = (
+    videos: any[],
+    metric: MetricKey,
+    count: number | "all"
+  ) => {
     try {
-      const recentVideos = videos.slice(0, 5);
+      const limit = count === "all" ? videos.length : count;
+      const recentVideos = videos.slice(0, limit);
+      if (!recentVideos.length) {
+        setGrowthData([]);
+        setVideoLegends([]);
+        return;
+      }
       const growthDataMap: Record<number, any> = {};
       const timePoints = [0, 3, 6, 12, 24, 48, 72];
       
       timePoints.forEach(h => growthDataMap[h] = { hour: h });
 
-      const colors = ["#2563eb", "#db2777", "#16a34a", "#d97706", "#9333ea"];
+      const colors = [
+        "#2563eb",
+        "#db2777",
+        "#16a34a",
+        "#d97706",
+        "#9333ea",
+        "#0f172a",
+        "#14b8a6",
+        "#f97316",
+        "#4f46e5",
+        "#a855f7",
+        "#22d3ee",
+        "#84cc16",
+        "#ef4444",
+        "#6366f1",
+        "#f59e0b",
+        "#06b6d4",
+        "#10b981",
+        "#7c3aed",
+        "#e11d48",
+        "#0ea5e9"
+      ];
       const legends = recentVideos.map((video, index) => ({
         id: video.id,
         title: video.caption ? (video.caption.slice(0, 10) + "...") : "No Title",
@@ -116,7 +174,8 @@ export default function AnalysisPage() {
           );
 
           if (Math.abs(targetPoint - diffHours) <= 3) {
-            growthDataMap[targetPoint][video.id] = log.saves;
+            const metricValue = Number(log[metric]) || 0;
+            growthDataMap[targetPoint][video.id] = metricValue;
           }
         });
       });
@@ -128,10 +187,19 @@ export default function AnalysisPage() {
 
   if (loading) return <div className="container mx-auto p-6 space-y-6"><Skeleton className="h-40 w-full" /></div>;
 
+  const metricLabel = METRIC_LABELS[selectedMetric];
+
   return (
     <div className="container mx-auto p-6 space-y-8 max-w-6xl">
       {/* 1. 振り返り入力リスト */}
       <PendingReviewList />
+
+      {error && (
+        <Alert variant="destructive">
+          <AlertTitle>データ取得エラー</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
       {/* 2. KPIカード (ここが新しい！) */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -187,8 +255,60 @@ export default function AnalysisPage() {
       {/* 3. 推移グラフ */}
       {growthData.length > 0 && (
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">初速分析 (保存数推移)</h2>
-          <GrowthChart data={growthData} videos={videoLegends} />
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <h2 className="text-lg font-semibold tracking-tight">
+              初速分析 ({metricLabel}推移)
+            </h2>
+            <div className="flex flex-col gap-4 md:flex-row">
+              <div className="space-y-1">
+                <Label htmlFor="metric-select" className="text-sm font-medium text-muted-foreground">
+                  分析指標
+                </Label>
+                <Select
+                  value={selectedMetric}
+                  onValueChange={(value) => setSelectedMetric(value as MetricKey)}
+                >
+                  <SelectTrigger id="metric-select" className="w-48">
+                    <SelectValue placeholder="指標を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {Object.entries(METRIC_LABELS).map(([key, label]) => (
+                      <SelectItem key={key} value={key}>
+                        {label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1">
+                <Label htmlFor="range-select" className="text-sm font-medium text-muted-foreground">
+                  表示件数
+                </Label>
+                <Select
+                  value={displayCount === "all" ? "all" : String(displayCount)}
+                  onValueChange={(value) =>
+                    setDisplayCount(value === "all" ? "all" : Number(value))
+                  }
+                >
+                  <SelectTrigger id="range-select" className="w-40">
+                    <SelectValue placeholder="件数を選択" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="5">最新5件</SelectItem>
+                    <SelectItem value="10">最新10件</SelectItem>
+                    <SelectItem value="20">最新20件</SelectItem>
+                    <SelectItem value="all">全て</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <GrowthChart
+            data={growthData}
+            videos={videoLegends}
+            metricLabel={metricLabel}
+          />
         </div>
       )}
     </div>

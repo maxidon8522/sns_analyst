@@ -27,13 +27,14 @@ export type VideoLegend = {
 type GrowthChartProps = {
   data: GrowthData[];
   videos: VideoLegend[];
+  metricLabel: string;
 };
 
-export function GrowthChart({ data, videos }: GrowthChartProps) {
+export function GrowthChart({ data, videos, metricLabel }: GrowthChartProps) {
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle>投稿後72時間の「保存数」推移比較</CardTitle>
+        <CardTitle>投稿後72時間の「{metricLabel}」推移比較</CardTitle>
       </CardHeader>
       <CardContent>
         <div className="h-[350px] w-full">
@@ -46,9 +47,19 @@ export function GrowthChart({ data, videos }: GrowthChartProps) {
                 tick={{ fontSize: 12 }}
                 tickFormatter={(val) => `${val}h`}
               />
-              <YAxis tick={{ fontSize: 12 }} />
+              <YAxis
+                tick={{ fontSize: 12 }}
+                label={{
+                  value: metricLabel,
+                  angle: -90,
+                  position: 'insideLeft',
+                  offset: 10,
+                  style: { textAnchor: 'middle' },
+                }}
+              />
               <Tooltip
                 labelFormatter={(val) => `投稿から ${val} 時間後`}
+                formatter={(value) => [value, metricLabel]}
                 contentStyle={{
                   borderRadius: '8px',
                   border: 'none',
