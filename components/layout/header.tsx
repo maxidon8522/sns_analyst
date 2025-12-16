@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { BarChart3, Instagram, PlusCircle } from "lucide-react";
 
@@ -7,11 +8,16 @@ export function Header() {
     <header className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* ロゴエリア */}
-        <Link
-          href="/instagram"
-          className="flex items-center gap-2 font-bold text-xl"
-        >
-          <span className="bg-gradient-to-r from-pink-500 to-orange-500 text-transparent bg-clip-text">
+        <Link href="/instagram" className="flex items-center gap-3">
+          <Image
+            src="/logo.jpg"
+            alt="Vlog Analyst ロゴ"
+            width={36}
+            height={36}
+            priority
+            className="rounded-md shadow-sm"
+          />
+          <span className="font-bold text-xl bg-gradient-to-r from-pink-500 to-orange-500 text-transparent bg-clip-text">
             Vlog Analyst
           </span>
         </Link>
