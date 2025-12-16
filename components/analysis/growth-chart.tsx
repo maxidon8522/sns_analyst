@@ -43,7 +43,6 @@ export function GrowthChart({ data, videos, metricLabel }: GrowthChartProps) {
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis
                 dataKey="hour"
-                unit="h"
                 tick={{ fontSize: 12 }}
                 tickFormatter={(val) => `${val}h`}
               />
