@@ -8,12 +8,12 @@ export function Header() {
     <header className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* ロゴエリア */}
-        <Link href="/instagram" className="flex items-center gap-3">
+        <Link href="/instagram" className="flex items-center gap-2">
           <Image
             src="/logo.jpg"
             alt="Vlog Analyst ロゴ"
-            width={36}
-            height={36}
+            width={24}
+            height={24}
             priority
             className="rounded-md shadow-sm"
           />
