@@ -88,11 +88,10 @@ export default function AnalysisPage() {
   }, []);
 
   useEffect(() => {
-    if (!videos.length) {
-      setLongTermData(createLongTermBaseline(longTermRange));
-      return;
-    }
     processGrowthData(videos, selectedMetric, displayCount);
+  }, [videos, selectedMetric, displayCount]);
+
+  useEffect(() => {
     processLongTermData(videos, selectedMetric, displayCount, longTermRange);
   }, [videos, selectedMetric, displayCount, longTermRange]);
 
@@ -134,8 +133,9 @@ export default function AnalysisPage() {
     metric: MetricKey,
     count: number | "all"
   ) => {
+    console.log("Processing graph with:", { metric: selectedMetric, count: displayCount });
     try {
-      const limit = count === "all" ? videos.length : count;
+      const limit = count === "all" ? videos.length : Number(count);
       const recentVideos = videos.slice(0, limit);
       if (!recentVideos.length) {
         setGrowthData([]);
@@ -189,7 +189,7 @@ export default function AnalysisPage() {
           );
 
           if (Math.abs(targetPoint - diffHours) <= 3) {
-            const metricValue = Number(log[metric]) || 0;
+            const metricValue = Number(log?.[metric] ?? 0) || 0;
             growthDataMap[targetPoint][video.id] = metricValue;
           }
         });
@@ -207,7 +207,7 @@ export default function AnalysisPage() {
     range: number
   ) => {
     try {
-      const limit = count === "all" ? videos.length : count;
+      const limit = count === "all" ? videos.length : Number(count);
       const recentVideos = videos.slice(0, limit);
       const days = Array.from({ length: range + 1 }, (_, day) => day);
       const dataMap: Record<number, any> = {};
@@ -254,7 +254,7 @@ export default function AnalysisPage() {
             selected = enrichedLogs[0];
           }
 
-          const metricValue = Number(selected.log?.[metric]) || 0;
+          const metricValue = Number(selected.log?.[metric] ?? 0) || 0;
           dataMap[day][video.id] = metricValue;
         });
       });
