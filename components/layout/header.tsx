@@ -8,7 +8,7 @@ export function Header() {
     <header className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
         {/* ロゴエリア */}
-        <Link href="/instagram" className="flex items-center gap-4">
+        <Link href="/analysis" className="flex items-center gap-4">
           <Image
             src="/logo.jpg"
             alt="Vlog Analyst ロゴ"
