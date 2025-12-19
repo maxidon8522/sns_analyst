@@ -14,6 +14,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { HeroComparisonChart } from "@/components/analysis/hero-comparison-chart";
 import { GrowthChart } from "@/components/analysis/growth-chart";
 import { LongTermChart } from "@/components/analysis/long-term-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
@@ -271,9 +272,13 @@ export default function AnalysisPage() {
   const metricLabel = METRIC_LABELS[selectedMetric];
 
   return (
-    <div className="container mx-auto p-6 space-y-8 max-w-6xl">
-      {/* 1. 振り返り入力リスト */}
-      <PendingReviewList />
+    <div className="container mx-auto p-6 space-y-10 max-w-6xl">
+      <HeroComparisonChart
+        videos={videos}
+        metricKey={selectedMetric}
+        metricLabel={metricLabel}
+        manualInputAnchorId="manual-input"
+      />
 
       {error && (
         <Alert variant="destructive">
@@ -282,48 +287,117 @@ export default function AnalysisPage() {
         </Alert>
       )}
 
-      {/* 2. KPIカード (ここが新しい！) */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">分析した投稿数</CardTitle>
+      <Card className="border-slate-200/80 bg-white/80 shadow-sm">
+        <CardContent className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="space-y-1">
+            <Label htmlFor="metric-select" className="text-sm font-medium text-muted-foreground">
+              分析指標
+            </Label>
+            <Select
+              value={selectedMetric}
+              onValueChange={(value) => setSelectedMetric(value as MetricKey)}
+            >
+              <SelectTrigger id="metric-select" className="w-48">
+                <SelectValue placeholder="指標を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {Object.entries(METRIC_LABELS).map(([key, label]) => (
+                  <SelectItem key={key} value={key}>
+                    {label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="long-term-range" className="text-sm font-medium text-muted-foreground">
+              分析期間
+            </Label>
+            <Select
+              value={String(longTermRange)}
+              onValueChange={(value) => setLongTermRange(Number(value))}
+            >
+              <SelectTrigger id="long-term-range" className="w-40">
+                <SelectValue placeholder="期間を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                {LONG_TERM_RANGE_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option}日
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-1">
+            <Label htmlFor="range-select" className="text-sm font-medium text-muted-foreground">
+              比較件数
+            </Label>
+            <Select
+              value={displayCount === "all" ? "all" : String(displayCount)}
+              onValueChange={(value) =>
+                setDisplayCount(value === "all" ? "all" : Number(value))
+              }
+            >
+              <SelectTrigger id="range-select" className="w-40">
+                <SelectValue placeholder="件数を選択" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">最新5件</SelectItem>
+                <SelectItem value="10">最新10件</SelectItem>
+                <SelectItem value="20">最新20件</SelectItem>
+                <SelectItem value="all">全て</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </CardContent>
+      </Card>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <Card className="border-slate-100 bg-white/70 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              分析した投稿数
+            </CardTitle>
             <Video className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalPosts}</div>
+          <CardContent className="pt-2">
+            <div className="text-xl font-semibold">{stats.totalPosts}</div>
             <p className="text-xs text-muted-foreground">件の動画</p>
           </CardContent>
         </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">平均保存数</CardTitle>
+
+        <Card className="border-slate-100 bg-white/70 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">平均保存数</CardTitle>
             <Bookmark className="h-4 w-4 text-pink-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgSaves}</div>
+          <CardContent className="pt-2">
+            <div className="text-xl font-semibold">{stats.avgSaves}</div>
             <p className="text-xs text-muted-foreground">回 / 投稿</p>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">平均リーチ</CardTitle>
+        <Card className="border-slate-100 bg-white/70 shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-muted-foreground">平均リーチ</CardTitle>
             <Users className="h-4 w-4 text-blue-500" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgReach > 0 ? stats.avgReach : "-"}</div>
+          <CardContent className="pt-2">
+            <div className="text-xl font-semibold">{stats.avgReach > 0 ? stats.avgReach : "-"}</div>
             <p className="text-xs text-muted-foreground">アカウント (手動入力分)</p>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-indigo-50 to-white border-indigo-100">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-indigo-900">最高パフォーマンス</CardTitle>
+        <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+            <CardTitle className="text-xs font-medium text-indigo-900">最高パフォーマンス</CardTitle>
             <TrendingUp className="h-4 w-4 text-indigo-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-indigo-700">
+          <CardContent className="pt-2">
+            <div className="text-xl font-semibold text-indigo-700">
               {stats.topPost?.metrics_logs?.[0]?.saves || 0}
             </div>
             <p className="text-xs text-indigo-600/80 truncate">
@@ -333,58 +407,11 @@ export default function AnalysisPage() {
         </Card>
       </div>
 
-      {/* 3. 推移グラフ */}
       {growthData.length > 0 && (
         <div className="space-y-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-            <h2 className="text-lg font-semibold tracking-tight">
-              初速分析 ({metricLabel}推移)
-            </h2>
-            <div className="flex flex-col gap-4 md:flex-row">
-              <div className="space-y-1">
-                <Label htmlFor="metric-select" className="text-sm font-medium text-muted-foreground">
-                  分析指標
-                </Label>
-                <Select
-                  value={selectedMetric}
-                  onValueChange={(value) => setSelectedMetric(value as MetricKey)}
-                >
-                  <SelectTrigger id="metric-select" className="w-48">
-                    <SelectValue placeholder="指標を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(METRIC_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        {label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="range-select" className="text-sm font-medium text-muted-foreground">
-                  表示件数
-                </Label>
-                <Select
-                  value={displayCount === "all" ? "all" : String(displayCount)}
-                  onValueChange={(value) =>
-                    setDisplayCount(value === "all" ? "all" : Number(value))
-                  }
-                >
-                  <SelectTrigger id="range-select" className="w-40">
-                    <SelectValue placeholder="件数を選択" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="5">最新5件</SelectItem>
-                    <SelectItem value="10">最新10件</SelectItem>
-                    <SelectItem value="20">最新20件</SelectItem>
-                    <SelectItem value="all">全て</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            初速分析 ({metricLabel}推移)
+          </h2>
           <GrowthChart
             data={growthData}
             videos={videoLegends}
@@ -393,37 +420,17 @@ export default function AnalysisPage() {
         </div>
       )}
 
-      <div className="space-y-4 mt-12">
-        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h2 className="text-lg font-semibold tracking-tight">長期推移分析</h2>
-          <div className="flex flex-col gap-4 md:flex-row">
-            <div className="space-y-1">
-              <Label htmlFor="long-term-range" className="text-sm font-medium text-muted-foreground">
-                分析期間
-              </Label>
-              <Select
-                value={String(longTermRange)}
-                onValueChange={(value) => setLongTermRange(Number(value))}
-              >
-                <SelectTrigger id="long-term-range" className="w-40">
-                  <SelectValue placeholder="期間を選択" />
-                </SelectTrigger>
-                <SelectContent>
-                  {LONG_TERM_RANGE_OPTIONS.map((option) => (
-                    <SelectItem key={option} value={String(option)}>
-                      {option}日
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </div>
+      <div className="space-y-4 mt-6">
+        <h2 className="text-lg font-semibold tracking-tight">長期推移分析</h2>
         <LongTermChart
           data={longTermData}
           videos={videoLegends}
           metricLabel={metricLabel}
         />
+      </div>
+
+      <div id="manual-input" className="scroll-mt-24">
+        <PendingReviewList />
       </div>
     </div>
   );
