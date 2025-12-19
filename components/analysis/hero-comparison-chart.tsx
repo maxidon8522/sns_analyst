@@ -161,6 +161,7 @@ export function HeroComparisonChart({
                   src={thumbnailUrl}
                   alt={targetVideo.caption || "最新の投稿"}
                   className="h-full w-full object-cover"
+                  referrerPolicy="no-referrer"
                 />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-[10px] text-slate-400">

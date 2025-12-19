@@ -96,7 +96,11 @@ export function PendingReviewList() {
             <div className="flex gap-4 items-center mb-4">
                <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
                   {video.thumbnail_url ? (
-                    <img src={video.thumbnail_url} className="w-full h-full object-cover" />
+                    <img
+                      src={video.thumbnail_url}
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-xs">No Image</div>
                   )}
