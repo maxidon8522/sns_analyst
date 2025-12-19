@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@supabase/supabase-js";
-import { differenceInDays, differenceInHours } from "date-fns";
+import { differenceInDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -14,8 +14,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
-import { HeroComparisonChart } from "@/components/analysis/hero-comparison-chart";
-import { GrowthChart } from "@/components/analysis/growth-chart";
+import { HeroAnalysisSection } from "@/components/dashboard/hero-analysis";
 import { LongTermChart } from "@/components/analysis/long-term-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
@@ -42,7 +41,6 @@ const createLongTermBaseline = (range: number) =>
 export default function AnalysisPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [growthData, setGrowthData] = useState<any[]>([]);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
   const [videos, setVideos] = useState<any[]>([]);
   const [longTermRange, setLongTermRange] = useState<number>(DEFAULT_LONG_TERM_RANGE);
@@ -89,8 +87,38 @@ export default function AnalysisPage() {
   }, []);
 
   useEffect(() => {
-    processGrowthData(videos, selectedMetric, displayCount);
-  }, [videos, selectedMetric, displayCount]);
+    const limit = displayCount === "all" ? videos.length : Number(displayCount);
+    const recentVideos = videos.slice(0, limit);
+    const colors = [
+      "#2563eb",
+      "#db2777",
+      "#16a34a",
+      "#d97706",
+      "#9333ea",
+      "#0f172a",
+      "#14b8a6",
+      "#f97316",
+      "#4f46e5",
+      "#a855f7",
+      "#22d3ee",
+      "#84cc16",
+      "#ef4444",
+      "#6366f1",
+      "#f59e0b",
+      "#06b6d4",
+      "#10b981",
+      "#7c3aed",
+      "#e11d48",
+      "#0ea5e9"
+    ];
+
+    const legends = recentVideos.map((video, index) => ({
+      id: video.id,
+      title: video.caption ? `${video.caption.slice(0, 10)}...` : "No Title",
+      color: colors[index % colors.length]
+    }));
+    setVideoLegends(legends);
+  }, [videos, displayCount]);
 
   useEffect(() => {
     processLongTermData(videos, selectedMetric, displayCount, longTermRange);
@@ -127,78 +155,6 @@ export default function AnalysisPage() {
       avgReach: totalPosts ? Math.round(totalReach / totalPosts) : 0,
       topPost
     });
-  };
-
-  const processGrowthData = (
-    videos: any[],
-    metric: MetricKey,
-    count: number | "all"
-  ) => {
-    console.log("Processing graph with:", { metric: selectedMetric, count: displayCount });
-    try {
-      const limit = count === "all" ? videos.length : Number(count);
-      const recentVideos = videos.slice(0, limit);
-      if (!recentVideos.length) {
-        setGrowthData([]);
-        setVideoLegends([]);
-        return;
-      }
-      const growthDataMap: Record<number, any> = {};
-      const timePoints = [0, 3, 6, 12, 24, 48, 72];
-      
-      timePoints.forEach(h => growthDataMap[h] = { hour: h });
-
-      const colors = [
-        "#2563eb",
-        "#db2777",
-        "#16a34a",
-        "#d97706",
-        "#9333ea",
-        "#0f172a",
-        "#14b8a6",
-        "#f97316",
-        "#4f46e5",
-        "#a855f7",
-        "#22d3ee",
-        "#84cc16",
-        "#ef4444",
-        "#6366f1",
-        "#f59e0b",
-        "#06b6d4",
-        "#10b981",
-        "#7c3aed",
-        "#e11d48",
-        "#0ea5e9"
-      ];
-      const legends = recentVideos.map((video, index) => ({
-        id: video.id,
-        title: video.caption ? (video.caption.slice(0, 10) + "...") : "No Title",
-        color: colors[index % colors.length]
-      }));
-      setVideoLegends(legends);
-
-      recentVideos.forEach((video) => {
-        const logs = video.metrics_logs;
-        if (!Array.isArray(logs) || logs.length === 0) return;
-        const postedAt = new Date(video.posted_at);
-
-        logs.forEach((log: any) => {
-          if (!log.fetched_at) return;
-          const diffHours = differenceInHours(new Date(log.fetched_at), postedAt);
-          const targetPoint = timePoints.reduce((prev, curr) => 
-            Math.abs(curr - diffHours) < Math.abs(prev - diffHours) ? curr : prev
-          );
-
-          if (Math.abs(targetPoint - diffHours) <= 3) {
-            const metricValue = Number(log?.[metric] ?? 0) || 0;
-            growthDataMap[targetPoint][video.id] = metricValue;
-          }
-        });
-      });
-      setGrowthData(Object.values(growthDataMap).sort((a: any, b: any) => a.hour - b.hour));
-    } catch (e) {
-      console.error(e);
-    }
   };
 
   const processLongTermData = (
@@ -273,7 +229,7 @@ export default function AnalysisPage() {
 
   return (
     <div className="container mx-auto p-6 space-y-10 max-w-6xl">
-      <HeroComparisonChart
+      <HeroAnalysisSection
         videos={videos}
         metricKey={selectedMetric}
         metricLabel={metricLabel}
@@ -287,7 +243,7 @@ export default function AnalysisPage() {
         </Alert>
       )}
 
-      <Card className="border-slate-200/80 bg-white/80 shadow-sm">
+      <Card className="border-slate-200/80 bg-white shadow-sm">
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
             <Label htmlFor="metric-select" className="text-sm font-medium text-muted-foreground">
@@ -356,7 +312,7 @@ export default function AnalysisPage() {
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-slate-100 bg-white/70 shadow-sm">
+        <Card className="border-slate-100 bg-white shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               分析した投稿数
@@ -369,7 +325,7 @@ export default function AnalysisPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-100 bg-white/70 shadow-sm">
+        <Card className="border-slate-100 bg-white shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-muted-foreground">平均保存数</CardTitle>
             <Bookmark className="h-4 w-4 text-pink-500" />
@@ -380,7 +336,7 @@ export default function AnalysisPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-100 bg-white/70 shadow-sm">
+        <Card className="border-slate-100 bg-white shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
             <CardTitle className="text-xs font-medium text-muted-foreground">平均リーチ</CardTitle>
             <Users className="h-4 w-4 text-blue-500" />
@@ -407,21 +363,8 @@ export default function AnalysisPage() {
         </Card>
       </div>
 
-      {growthData.length > 0 && (
-        <div className="space-y-4">
-          <h2 className="text-lg font-semibold tracking-tight">
-            初速分析 ({metricLabel}推移)
-          </h2>
-          <GrowthChart
-            data={growthData}
-            videos={videoLegends}
-            metricLabel={metricLabel}
-          />
-        </div>
-      )}
-
       <div className="space-y-4 mt-6">
-        <h2 className="text-lg font-semibold tracking-tight">長期推移分析</h2>
+        <h2 className="text-lg font-semibold tracking-tight">期間別推移</h2>
         <LongTermChart
           data={longTermData}
           videos={videoLegends}
