@@ -17,6 +17,7 @@ type Video = {
   caption: string;
   posted_at: string;
   thumbnail_url: string;
+  media_url?: string;
   manual_input_done: boolean;
 };
 
@@ -91,13 +92,16 @@ export function PendingReviewList() {
         {loading && <p>読み込み中...</p>}
         {!loading && videos.length === 0 && <p>動画データが見つかりません。</p>}
         
-        {videos.map((video) => (
-          <div key={video.id} className="bg-white p-4 rounded-lg shadow-sm border">
+        {videos.map((video) => {
+          const thumbnailSrc = video.thumbnail_url || video.media_url;
+
+          return (
+            <div key={video.id} className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex gap-4 items-center mb-4">
                <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
-                  {video.thumbnail_url ? (
+                  {thumbnailSrc ? (
                     <img
-                      src={video.thumbnail_url}
+                      src={thumbnailSrc}
                       className="w-full h-full object-cover"
                       referrerPolicy="no-referrer"
                     />
@@ -162,7 +166,8 @@ export function PendingReviewList() {
               </Button>
             )}
           </div>
-        ))}
+          );
+        })}
       </CardContent>
     </Card>
   );

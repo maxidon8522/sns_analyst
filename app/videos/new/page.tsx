@@ -23,6 +23,7 @@ async function saveAnalysisAction(formData: FormData) {
       ig_media_id: post.id,
       permalink: post.permalink,
       thumbnail_url: post.thumbnail_url || post.media_url,
+      media_url: post.media_url,
       caption: post.caption,
       posted_at: post.timestamp,
       analysis_tags: JSON.parse(rawTags),

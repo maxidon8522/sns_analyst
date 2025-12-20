@@ -29,7 +29,7 @@ export const getInstagramPosts = async (): Promise<InstagramMedia[]> => {
   }
 
   const fields =
-    'id,caption,media_type,timestamp,like_count,comments_count,permalink';
+    'id,caption,media_type,timestamp,like_count,comments_count,permalink,media_url';
   const url = `${BASE_URL}/${USER_ID}/media?fields=${fields}&access_token=${ACCESS_TOKEN}&limit=20`;
 
   console.log('Fetching URL:', url);
@@ -134,7 +134,7 @@ export const getPostWithInsights = async (
   if (!ACCESS_TOKEN) return null;
 
   const fields =
-    'id,caption,media_type,timestamp,like_count,comments_count,permalink';
+    'id,caption,media_type,timestamp,like_count,comments_count,permalink,media_url';
   const url = `${BASE_URL}/${mediaId}?fields=${fields}&access_token=${ACCESS_TOKEN}`;
 
   try {

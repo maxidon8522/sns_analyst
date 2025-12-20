@@ -74,6 +74,7 @@ export interface Database {
           ig_media_id: string;
           permalink: string | null;
           thumbnail_url: string | null;
+          media_url: string | null;
           caption: string | null;
           posted_at: string | null;
           analysis_tags: AnalysisTags | null;
@@ -90,6 +91,7 @@ export interface Database {
           ig_media_id: string;
           permalink?: string | null;
           thumbnail_url?: string | null;
+          media_url?: string | null;
           caption?: string | null;
           posted_at?: string | null;
           analysis_tags?: AnalysisTags | null;
@@ -106,6 +108,7 @@ export interface Database {
           ig_media_id?: string;
           permalink?: string | null;
           thumbnail_url?: string | null;
+          media_url?: string | null;
           caption?: string | null;
           posted_at?: string | null;
           analysis_tags?: AnalysisTags | null;
