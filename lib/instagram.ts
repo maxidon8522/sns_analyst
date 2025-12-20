@@ -22,6 +22,23 @@ export interface InstagramMedia {
   };
 }
 
+export interface AccountInsights {
+  demographics: {
+    countries: Record<string, number>;
+    cities: Record<string, number>;
+    genderAge: Record<string, number>;
+  };
+  dailyStats: {
+    followersCount: number;
+    profileViews: number;
+    websiteClicks: number;
+    reachDaily: number;
+    impressionsDaily: number;
+    onlinePeakHour: number | null;
+    onlineFollowersByHour: Record<string, number>;
+  };
+}
+
 export const getInstagramPosts = async (): Promise<InstagramMedia[]> => {
   if (!ACCESS_TOKEN || !USER_ID) {
     console.error('❌ API Key missing');
@@ -56,6 +73,44 @@ const safeNumber = (value: unknown): number => {
   if (typeof value === 'number') return value;
   const parsed = Number(value);
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const parseInsightValue = (value: unknown): Record<string, number> => {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
+  return Object.entries(value as Record<string, unknown>).reduce<Record<string, number>>(
+    (acc, [key, val]) => {
+      acc[key] = safeNumber(val);
+      return acc;
+    },
+    {},
+  );
+};
+
+const getDayRange = () => {
+  const today = new Date();
+  const end = new Date(today);
+  end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 1);
+  return {
+    since: Math.floor(start.getTime() / 1000),
+    until: Math.floor(end.getTime() / 1000),
+  };
+};
+
+const fetchInsights = async (url: string) => {
+  try {
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => null);
+      console.error('❌ Instagram Insights API Error:', errorData || res.statusText);
+      return null;
+    }
+    return res.json();
+  } catch (error) {
+    console.error('❌ Insights Fetch Error:', error);
+    return null;
+  }
 };
 
 export async function getMediaInsights(mediaId: string) {
@@ -127,6 +182,72 @@ export async function getMediaInsights(mediaId: string) {
     saved,
   };
 }
+
+export const getAccountInsights = async (): Promise<AccountInsights | null> => {
+  if (!ACCESS_TOKEN || !USER_ID) return null;
+
+  const demographicsMetrics = 'audience_country,audience_city,audience_gender_age';
+  const demographicsUrl = `${BASE_URL}/${USER_ID}/insights?metric=${demographicsMetrics}&period=lifetime&access_token=${ACCESS_TOKEN}`;
+
+  const dailyMetrics =
+    'profile_views,website_clicks,online_followers,reach,impressions,follower_count';
+  const { since, until } = getDayRange();
+  const dailyUrl = `${BASE_URL}/${USER_ID}/insights?metric=${dailyMetrics}&period=day&since=${since}&until=${until}&access_token=${ACCESS_TOKEN}`;
+
+  const [demographicsResponse, dailyResponse] = await Promise.all([
+    fetchInsights(demographicsUrl),
+    fetchInsights(dailyUrl),
+  ]);
+
+  const demographicsData = Array.isArray(demographicsResponse?.data)
+    ? demographicsResponse.data
+    : [];
+  const dailyData = Array.isArray(dailyResponse?.data) ? dailyResponse.data : [];
+
+  const audienceCountry = demographicsData.find((item: any) => item?.name === 'audience_country');
+  const audienceCity = demographicsData.find((item: any) => item?.name === 'audience_city');
+  const audienceGenderAge = demographicsData.find((item: any) => item?.name === 'audience_gender_age');
+
+  const profileViews = dailyData.find((item: any) => item?.name === 'profile_views');
+  const websiteClicks = dailyData.find((item: any) => item?.name === 'website_clicks');
+  const onlineFollowers = dailyData.find((item: any) => item?.name === 'online_followers');
+  const reachDaily = dailyData.find((item: any) => item?.name === 'reach');
+  const impressionsDaily = dailyData.find((item: any) => item?.name === 'impressions');
+  const followerCount = dailyData.find(
+    (item: any) => item?.name === 'follower_count' || item?.name === 'followers_count',
+  );
+
+  const onlineFollowersByHour = parseInsightValue(
+    onlineFollowers?.values?.[0]?.value,
+  );
+
+  let onlinePeakHour: number | null = null;
+  let peakValue = -1;
+  Object.entries(onlineFollowersByHour).forEach(([hour, value]) => {
+    const hourNumber = Number(hour);
+    if (Number.isFinite(hourNumber) && value > peakValue) {
+      peakValue = value;
+      onlinePeakHour = hourNumber;
+    }
+  });
+
+  return {
+    demographics: {
+      countries: parseInsightValue(audienceCountry?.values?.[0]?.value),
+      cities: parseInsightValue(audienceCity?.values?.[0]?.value),
+      genderAge: parseInsightValue(audienceGenderAge?.values?.[0]?.value),
+    },
+    dailyStats: {
+      followersCount: safeNumber(followerCount?.values?.[0]?.value),
+      profileViews: safeNumber(profileViews?.values?.[0]?.value),
+      websiteClicks: safeNumber(websiteClicks?.values?.[0]?.value),
+      reachDaily: safeNumber(reachDaily?.values?.[0]?.value),
+      impressionsDaily: safeNumber(impressionsDaily?.values?.[0]?.value),
+      onlinePeakHour,
+      onlineFollowersByHour,
+    },
+  };
+};
 
 export const getPostWithInsights = async (
   mediaId: string,

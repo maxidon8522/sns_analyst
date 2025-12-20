@@ -14,10 +14,14 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select";
+import { MarketingFunnel } from "@/components/analysis/marketing-funnel";
+import { ActivityChart } from "@/components/analysis/activity-chart";
+import { DemographicsCharts } from "@/components/analysis/demographics-charts";
 import { HeroAnalysisSection } from "@/components/dashboard/hero-analysis";
 import { LongTermChart } from "@/components/analysis/long-term-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
+import type { Database } from "@/types/database";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -25,6 +29,13 @@ const supabase = createClient(
 );
 
 type MetricKey = "views" | "saves" | "likes" | "comments";
+type AccountInsightsRow = Database["public"]["Tables"]["account_insights"]["Row"];
+
+type AudienceData = {
+  countries?: Record<string, number>;
+  cities?: Record<string, number>;
+  genderAge?: Record<string, number>;
+};
 
 const METRIC_LABELS: Record<MetricKey, string> = {
   views: "再生数",
@@ -47,6 +58,7 @@ export default function AnalysisPage() {
   const [longTermData, setLongTermData] = useState<any[]>(
     createLongTermBaseline(DEFAULT_LONG_TERM_RANGE)
   );
+  const [accountInsights, setAccountInsights] = useState<AccountInsightsRow | null>(null);
   const [selectedMetric, setSelectedMetric] = useState<MetricKey>("views");
   const [displayCount, setDisplayCount] = useState<number | "all">(5);
   const [stats, setStats] = useState({
@@ -58,23 +70,35 @@ export default function AnalysisPage() {
   useEffect(() => {
     async function loadData() {
       try {
-        const { data: fetchedVideos, error: dbError } = await supabase
-          .from('videos')
-          .select('*, metrics_logs(*)')
-          .order('posted_at', { ascending: false });
+        const [videosResponse, accountResponse] = await Promise.all([
+          supabase
+            .from('videos')
+            .select('*, metrics_logs(*)')
+            .order('posted_at', { ascending: false }),
+          supabase
+            .from('account_insights')
+            .select('*')
+            .order('date', { ascending: false })
+            .limit(1)
+            .maybeSingle(),
+        ]);
 
-        if (dbError) throw dbError;
+        if (videosResponse.error) throw videosResponse.error;
+        if (accountResponse.error) {
+          console.warn("Account insights load error:", accountResponse.error.message);
+        }
 
-        if (!fetchedVideos || fetchedVideos.length === 0) {
+        setAccountInsights(accountResponse.data ?? null);
+
+        if (!videosResponse.data || videosResponse.data.length === 0) {
           setLoading(false);
-          setGrowthData([]);
           setVideoLegends([]);
           setLongTermData(createLongTermBaseline(DEFAULT_LONG_TERM_RANGE));
           return;
         }
 
-        setVideos(fetchedVideos);
-        calculateStats(fetchedVideos);
+        setVideos(videosResponse.data);
+        calculateStats(videosResponse.data);
 
       } catch (err: any) {
         console.error("Analysis Load Error:", err);
@@ -226,6 +250,7 @@ export default function AnalysisPage() {
   if (loading) return <div className="container mx-auto p-6 space-y-6"><Skeleton className="h-40 w-full" /></div>;
 
   const metricLabel = METRIC_LABELS[selectedMetric];
+  const audienceData = accountInsights?.audience_data as AudienceData | null;
 
   return (
     <div className="container mx-auto p-6 space-y-10 max-w-6xl">
@@ -369,6 +394,23 @@ export default function AnalysisPage() {
           data={longTermData}
           videos={videoLegends}
           metricLabel={metricLabel}
+        />
+      </div>
+
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold tracking-tight">🌍 オーディエンスと戦略</h2>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <MarketingFunnel
+            reach={accountInsights?.reach_daily}
+            profileViews={accountInsights?.profile_views}
+            websiteClicks={accountInsights?.website_clicks}
+          />
+          <ActivityChart peakHour={accountInsights?.online_peak_hour ?? null} />
+        </div>
+        <DemographicsCharts
+          countries={audienceData?.countries}
+          cities={audienceData?.cities}
+          genderAge={audienceData?.genderAge}
         />
       </div>
 

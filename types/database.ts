@@ -159,6 +159,45 @@ export interface Database {
           },
         ];
       };
+      account_insights: {
+        Row: {
+          id: string;
+          date: string;
+          followers_count: number | null;
+          profile_views: number | null;
+          website_clicks: number | null;
+          reach_daily: number | null;
+          impressions_daily: number | null;
+          online_peak_hour: number | null;
+          audience_data: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          date: string;
+          followers_count?: number | null;
+          profile_views?: number | null;
+          website_clicks?: number | null;
+          reach_daily?: number | null;
+          impressions_daily?: number | null;
+          online_peak_hour?: number | null;
+          audience_data?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          date?: string;
+          followers_count?: number | null;
+          profile_views?: number | null;
+          website_clicks?: number | null;
+          reach_daily?: number | null;
+          impressions_daily?: number | null;
+          online_peak_hour?: number | null;
+          audience_data?: Json | null;
+          created_at?: string;
+        };
+        Relationships: [];
+      };
     };
     Views: never;
     Functions: never;
