@@ -80,15 +80,16 @@ export default function AnalysisPage() {
             .select('*')
             .order('date', { ascending: false })
             .limit(1)
-            .maybeSingle(),
+            .single(),
         ]);
 
         if (videosResponse.error) throw videosResponse.error;
         if (accountResponse.error) {
           console.warn("Account insights load error:", accountResponse.error.message);
+          setAccountInsights(null);
+        } else {
+          setAccountInsights(accountResponse.data ?? null);
         }
-
-        setAccountInsights(accountResponse.data ?? null);
 
         if (!videosResponse.data || videosResponse.data.length === 0) {
           setLoading(false);
