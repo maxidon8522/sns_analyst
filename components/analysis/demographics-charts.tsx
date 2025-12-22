@@ -12,6 +12,7 @@ import {
 } from "recharts";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 type DemographicsChartsProps = {
   countries?: Record<string, number>;
@@ -69,6 +70,29 @@ const getTopEntries = (data?: Record<string, number>, limit = 5) => {
 };
 
 export function DemographicsCharts({ countries, cities, genderAge }: DemographicsChartsProps) {
+  const hasValues = (data?: Record<string, number>) =>
+    !!data && Object.values(data).some((value) => Number(value) > 0);
+
+  const hasDemographics = hasValues(countries) || hasValues(cities) || hasValues(genderAge);
+
+  if (!hasDemographics) {
+    return (
+      <div className="grid gap-6 lg:grid-cols-2">
+        <Card className="border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-base">視聴者属性</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <EmptyState
+              title="属性データ未取得"
+              description="フォロワー数が100人未満、またはデータ収集中です。"
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   const ageGenderData = buildAgeGenderData(genderAge);
   const topCountries = getTopEntries(countries);
   const topCities = getTopEntries(cities);

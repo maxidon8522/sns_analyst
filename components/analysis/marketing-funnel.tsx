@@ -14,6 +14,7 @@ import {
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/dashboard/empty-state";
 
 type MarketingFunnelProps = {
   reach?: number | null;
@@ -31,17 +32,34 @@ export function MarketingFunnel({
   profileViews,
   websiteClicks
 }: MarketingFunnelProps) {
+  const hasValidReach = typeof reach === "number" && reach > 0;
+  const hasValidProfileViews = typeof profileViews === "number" && profileViews > 0;
+
+  if (!hasValidReach || !hasValidProfileViews) {
+    return (
+      <Card className="border-slate-200 bg-white shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-base">コンバージョン分析</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            リーチからサイト訪問までの動線を可視化します。
+          </p>
+        </CardHeader>
+        <CardContent>
+          <EmptyState
+            title="コンバージョンデータ不足"
+            description="リーチやプロフィール閲覧のデータがまだ取得できていません。"
+          />
+        </CardContent>
+      </Card>
+    );
+  }
+
   const safeReach = typeof reach === "number" ? reach : 0;
   const safeProfileViews = typeof profileViews === "number" ? profileViews : 0;
   const safeWebsiteClicks = typeof websiteClicks === "number" ? websiteClicks : 0;
   const reachText = typeof reach === "number" ? formatNumber(reach) : "-";
   const profileText = typeof profileViews === "number" ? formatNumber(profileViews) : "-";
   const websiteText = typeof websiteClicks === "number" ? formatNumber(websiteClicks) : "-";
-
-  const hasData =
-    typeof reach === "number" ||
-    typeof profileViews === "number" ||
-    typeof websiteClicks === "number";
 
   const chartData = [
     { step: "リーチ数", value: safeReach },
@@ -93,63 +111,55 @@ export function MarketingFunnel({
           </div>
         </div>
 
-        {!hasData ? (
-          <p className="text-sm text-muted-foreground">
-            まだデータがありません。Cronでアカウントインサイトを取得してください。
-          </p>
-        ) : (
-          <>
-            <div className="h-[220px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={chartData}
-                  layout="vertical"
-                  margin={{ top: 10, right: 24, left: 12, bottom: 0 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} />
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 12 }}
-                    tickFormatter={(value) => formatNumber(value)}
-                  />
-                  <YAxis
-                    type="category"
-                    dataKey="step"
-                    tick={{ fontSize: 12 }}
-                    width={120}
-                  />
-                  <Tooltip
-                    formatter={(value) => formatNumber(Number(value))}
-                    contentStyle={{
-                      borderRadius: "10px",
-                      border: "none",
-                      boxShadow: "0 12px 30px rgba(15,23,42,0.12)"
-                    }}
-                  />
-                  <Bar dataKey="value" radius={[0, 8, 8, 0]}>
-                    <LabelList
-                      dataKey="value"
-                      position="right"
-                      formatter={(value: number) => formatNumber(value)}
-                    />
-                    {chartData.map((entry, index) => (
-                      <Cell key={entry.step} fill={colors[index % colors.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+        <div className="h-[220px] w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              layout="vertical"
+              margin={{ top: 10, right: 24, left: 12, bottom: 0 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+              <XAxis
+                type="number"
+                tick={{ fontSize: 12 }}
+                tickFormatter={(value) => formatNumber(value)}
+              />
+              <YAxis
+                type="category"
+                dataKey="step"
+                tick={{ fontSize: 12 }}
+                width={120}
+              />
+              <Tooltip
+                formatter={(value) => formatNumber(Number(value))}
+                contentStyle={{
+                  borderRadius: "10px",
+                  border: "none",
+                  boxShadow: "0 12px 30px rgba(15,23,42,0.12)"
+                }}
+              />
+              <Bar dataKey="value" radius={[0, 8, 8, 0]}>
+                <LabelList
+                  dataKey="value"
+                  position="right"
+                  formatter={(value: number) => formatNumber(value)}
+                />
+                {chartData.map((entry, index) => (
+                  <Cell key={entry.step} fill={colors[index % colors.length]} />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
 
-            <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="gap-1 text-xs">
-                リーチ → プロフ {profileRate !== null ? `${profileRate}%` : "-"}
-              </Badge>
-              <Badge variant="outline" className="gap-1 text-xs">
-                プロフ → Web {websiteRate !== null ? `${websiteRate}%` : "-"}
-              </Badge>
-            </div>
-          </>
-        )}
+        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <Badge variant="outline" className="gap-1 text-xs">
+            リーチ → プロフ {profileRate !== null ? `${profileRate}%` : "-"}
+          </Badge>
+          <Badge variant="outline" className="gap-1 text-xs">
+            プロフ → Web {websiteRate !== null ? `${websiteRate}%` : "-"}
+          </Badge>
+        </div>
       </CardContent>
     </Card>
   );
