@@ -20,7 +20,7 @@ export default function RootLayout({
     <html lang="ja">
       <body className={inter.className}>
         <Header />
-        <main className="min-h-screen bg-gray-50/50">
+        <main className="min-h-screen w-full max-w-7xl mx-auto p-6 md:p-10">
           {children}
         </main>
         <Toaster />

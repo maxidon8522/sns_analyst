@@ -5,8 +5,8 @@ import { BarChart3, Instagram, PlusCircle } from "lucide-react";
 
 export function Header() {
   return (
-    <header className="border-b bg-white/80 backdrop-blur-md sticky top-0 z-50">
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+    <header className="sticky top-0 z-50 border-b border-slate-100 bg-white">
+      <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6 md:px-10">
         {/* ロゴエリア */}
         <Link href="/analysis" className="flex items-center gap-4">
           <Image

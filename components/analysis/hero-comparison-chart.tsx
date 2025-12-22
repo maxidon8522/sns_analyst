@@ -109,7 +109,7 @@ export function HeroComparisonChart({
 
   if (!targetVideo) {
     return (
-      <Card className="border-slate-200 bg-gradient-to-br from-white via-slate-50 to-amber-50">
+      <Card className="border-slate-100 bg-white shadow-sm">
         <CardHeader>
           <CardTitle className="text-lg">最新投稿の比較グラフ</CardTitle>
         </CardHeader>
@@ -130,7 +130,7 @@ export function HeroComparisonChart({
 
   let statusText = "データ不足";
   let statusClass =
-    "border-slate-200 bg-slate-100 text-slate-600";
+    "border-slate-100 bg-slate-100 text-slate-600";
 
   if (typeof latestTargetValue === "number" && typeof latestAverageValue === "number") {
     if (latestTargetValue > latestAverageValue) {
@@ -141,18 +141,16 @@ export function HeroComparisonChart({
       statusClass = "border-amber-200 bg-amber-500 text-white";
     } else {
       statusText = "🟰 ほぼ平均";
-      statusClass = "border-slate-200 bg-slate-200 text-slate-700";
+      statusClass = "border-slate-100 bg-slate-200 text-slate-700";
     }
   } else if (benchmarkCount === 0) {
     statusText = "比較データなし";
-    statusClass = "border-slate-200 bg-slate-100 text-slate-600";
+    statusClass = "border-slate-100 bg-slate-100 text-slate-600";
   }
 
   return (
-    <Card className="relative overflow-hidden border-slate-200 bg-gradient-to-br from-white via-slate-50 to-amber-50">
-      <div className="pointer-events-none absolute -right-24 -top-24 h-56 w-56 rounded-full bg-amber-200/40 blur-3xl" />
-      <div className="pointer-events-none absolute -left-20 -bottom-24 h-56 w-56 rounded-full bg-sky-200/40 blur-3xl" />
-      <CardHeader className="relative z-10 space-y-4">
+    <Card className="relative overflow-hidden border-slate-100 bg-white shadow-sm">
+      <CardHeader className="space-y-4">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
             <div className="h-14 w-14 overflow-hidden rounded-xl border border-white/60 bg-white shadow-sm">
@@ -199,13 +197,13 @@ export function HeroComparisonChart({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
-          <span className="rounded-full border border-white/60 bg-white/70 px-3 py-1">
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
             指標: {metricLabel}
           </span>
-          <span className="rounded-full border border-white/60 bg-white/70 px-3 py-1">
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
             {benchmarkCount > 0 ? `過去${benchmarkCount}件平均との差` : "過去平均データなし"}
           </span>
-          <span className="rounded-full border border-white/60 bg-white/70 px-3 py-1">
+          <span className="rounded-full border border-slate-200 bg-white px-3 py-1">
             {latestHour !== null
               ? `${latestHour}h時点 最新 ${formatValue(latestTargetValue)} / 平均 ${formatValue(
                   latestAverageValue
@@ -214,7 +212,7 @@ export function HeroComparisonChart({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="relative z-10 space-y-4">
+      <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-4 text-xs text-slate-500">
           <div className="flex items-center gap-2">
             <span className="h-[6px] w-8 rounded-full bg-amber-500" />

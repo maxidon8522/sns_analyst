@@ -11,9 +11,11 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { Sparkles } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 const TIME_POINTS = [0, 3, 6, 12, 24, 48, 72];
 
@@ -62,13 +64,18 @@ const formatPercent = (value: number) => {
   return `${sign}${value}%`;
 };
 
+const formatValue = (value: number | null | undefined) => {
+  if (typeof value !== "number") return "-";
+  return new Intl.NumberFormat("ja-JP").format(value);
+};
+
 export function HeroAnalysisSection({
   videos,
   metricKey,
   metricLabel,
   manualInputAnchorId = "manual-input"
 }: HeroAnalysisSectionProps) {
-  const { targetVideo, chartData, comparison, benchmarkCount } = useMemo(() => {
+  const { targetVideo, chartData, comparison, benchmarkCount, latestComparison } = useMemo(() => {
     const target = videos?.[0];
     const benchmarkVideos = Array.isArray(videos) ? videos.slice(1) : [];
     const targetMetrics = buildTimepointMetrics(target, metricKey);
@@ -105,13 +112,13 @@ export function HeroAnalysisSection({
       const diff = Math.round(((latest.target as number) - latest.average) / latest.average * 100);
       if (diff > 0) {
         comparisonText = `🚀 平均比 ${formatPercent(diff)}`;
-        comparisonTone = "bg-emerald-500 text-white border-emerald-200";
+        comparisonTone = "bg-emerald-100 text-emerald-700 border-emerald-200";
       } else if (diff < 0) {
         comparisonText = `🐢 平均比 ${formatPercent(diff)}`;
-        comparisonTone = "bg-amber-500 text-white border-amber-200";
+        comparisonTone = "bg-amber-100 text-amber-700 border-amber-200";
       } else {
         comparisonText = "🟰 平均比 0%";
-        comparisonTone = "bg-slate-200 text-slate-700 border-slate-200";
+        comparisonTone = "bg-slate-100 text-slate-600 border-slate-200";
       }
     }
 
@@ -124,26 +131,58 @@ export function HeroAnalysisSection({
       targetVideo: target,
       chartData: data,
       comparison: { text: comparisonText, tone: comparisonTone },
-      benchmarkCount: benchmarkVideos.length
+      benchmarkCount: benchmarkVideos.length,
+      latestComparison: latest ?? null
     };
   }, [metricKey, videos]);
 
   if (!targetVideo) {
     return (
-      <section className="rounded-xl bg-white p-6 shadow-sm">
-        <p className="text-sm text-muted-foreground">
-          まだ動画データがありません。投稿を追加すると最新動画のグラフが表示されます。
-        </p>
-      </section>
+      <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-sky-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              最新動画の初速
+            </CardTitle>
+          </div>
+          <p className="text-sm text-slate-500">
+            今回の動画の勝敗をいち早くチェックします。
+          </p>
+        </CardHeader>
+        <CardContent className="p-6 pt-0">
+          <p className="text-sm text-slate-500">
+            まだ動画データがありません。投稿が追加されると最新動画のグラフが表示されます。
+          </p>
+        </CardContent>
+      </Card>
     );
   }
 
   const thumbnailUrl = targetVideo.thumbnail_url || targetVideo.media_url;
   const needsManualInput = targetVideo.manual_input_done === false;
+  const latestTargetValue = latestComparison?.target ?? null;
+  const latestAverageValue = latestComparison?.average ?? null;
+  const latestHour = latestComparison?.hour ?? null;
 
   return (
-    <section className="rounded-xl bg-white p-6 shadow-sm">
-      <div className="grid gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-center">
+    <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <CardHeader className="p-6 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-sky-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              最新動画の初速
+            </CardTitle>
+          </div>
+          <Badge className={comparison.tone}>{comparison.text}</Badge>
+        </div>
+        <p className="text-sm text-slate-500">
+          今回の動画が平均より伸びているかをチェックします。
+        </p>
+      </CardHeader>
+      <CardContent className="p-6 pt-0">
+        <div className="grid gap-6 md:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)] md:items-center">
         <div className="space-y-3">
           <div className="relative overflow-hidden rounded-xl bg-slate-100 shadow-sm">
             <div className="pt-[177%]" />
@@ -174,7 +213,7 @@ export function HeroAnalysisSection({
               </p>
             </div>
           </div>
-          <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
             <span className="rounded-full border border-slate-200 px-3 py-1">
               指標: {metricLabel}
             </span>
@@ -185,14 +224,22 @@ export function HeroAnalysisSection({
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-end justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
             <div>
-              <h2 className="text-xl font-semibold text-slate-900">初速グラフ (72時間)</h2>
-              <p className="text-sm text-muted-foreground">
-                最新動画の伸びを平均ラインと比較して確認します。
+              <p className="text-xs text-slate-500">最新 {metricLabel}</p>
+              <p className="text-3xl font-bold text-slate-800">
+                {formatValue(latestTargetValue)}
               </p>
             </div>
-            <Badge className={comparison.tone}>{comparison.text}</Badge>
+            <div>
+              <p className="text-xs text-slate-500">平均 {metricLabel}</p>
+              <p className="text-3xl font-bold text-slate-800">
+                {formatValue(latestAverageValue)}
+              </p>
+            </div>
+            <p className="text-xs text-slate-500">
+              {latestHour !== null ? `${latestHour}h 時点の比較` : "最新値を取得中"}
+            </p>
           </div>
 
           <div className="h-[320px] w-full">
@@ -259,6 +306,7 @@ export function HeroAnalysisSection({
           )}
         </div>
       </div>
-    </section>
+      </CardContent>
+    </Card>
   );
 }

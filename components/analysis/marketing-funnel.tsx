@@ -11,6 +11,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { TrendingUp } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,14 +38,19 @@ export function MarketingFunnel({
 
   if (!hasValidReach || !hasValidProfileViews) {
     return (
-      <Card className="border-slate-200 bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">コンバージョン分析</CardTitle>
-          <p className="text-sm text-muted-foreground">
+      <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              コンバージョン分析
+            </CardTitle>
+          </div>
+          <p className="text-sm text-slate-500">
             リーチからサイト訪問までの動線を可視化します。
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6 pt-0">
           <EmptyState
             title="コンバージョンデータ不足"
             description="リーチやプロフィール閲覧のデータがまだ取得できていません。"
@@ -72,42 +78,51 @@ export function MarketingFunnel({
   const overallRate = getRate(safeReach, safeWebsiteClicks);
 
   const colors = ["#0ea5e9", "#38bdf8", "#a5b4fc"];
+  const overallBadgeTone =
+    overallRate !== null && overallRate > 0
+      ? "bg-emerald-100 text-emerald-700"
+      : "bg-slate-100 text-slate-600";
 
   return (
-    <Card className="border-slate-200 bg-white shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <div>
-          <CardTitle className="text-base">コンバージョン分析</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            リーチからサイト訪問までの動線を可視化します。
-          </p>
+    <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <CardHeader className="p-6 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-5 w-5 text-emerald-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              コンバージョン分析
+            </CardTitle>
+          </div>
+          <Badge className={`text-xs ${overallBadgeTone}`}>
+            全体CVR {overallRate !== null ? `${overallRate}%` : "-"}
+          </Badge>
         </div>
-        <Badge variant="secondary" className="text-xs">
-          全体CVR {overallRate !== null ? `${overallRate}%` : "-"}
-        </Badge>
+        <p className="text-sm text-slate-500">
+          リーチからサイト訪問までの動線を可視化します。
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-6 pt-0">
         <div className="grid grid-cols-3 gap-3">
-          <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-            <p className="text-xs text-muted-foreground">リーチ</p>
-            <p className="text-lg font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="text-xs text-slate-500">リーチ</p>
+            <p className="text-3xl font-bold text-slate-800">
               {reachText}
             </p>
-            <p className="text-[10px] text-muted-foreground">人</p>
+            <p className="text-[10px] text-slate-400">人</p>
           </div>
-          <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-            <p className="text-xs text-muted-foreground">プロフィール閲覧</p>
-            <p className="text-lg font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="text-xs text-slate-500">プロフィール閲覧</p>
+            <p className="text-3xl font-bold text-slate-800">
               {profileText}
             </p>
-            <p className="text-[10px] text-muted-foreground">回</p>
+            <p className="text-[10px] text-slate-400">回</p>
           </div>
-          <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-            <p className="text-xs text-muted-foreground">Webクリック</p>
-            <p className="text-lg font-semibold text-slate-900">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-3">
+            <p className="text-xs text-slate-500">Webクリック</p>
+            <p className="text-3xl font-bold text-slate-800">
               {websiteText}
             </p>
-            <p className="text-[10px] text-muted-foreground">回</p>
+            <p className="text-[10px] text-slate-400">回</p>
           </div>
         </div>
 
@@ -152,11 +167,11 @@ export function MarketingFunnel({
           </ResponsiveContainer>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <Badge variant="outline" className="gap-1 text-xs">
+        <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+          <Badge variant="outline" className="gap-1 text-xs text-slate-600">
             リーチ → プロフ {profileRate !== null ? `${profileRate}%` : "-"}
           </Badge>
-          <Badge variant="outline" className="gap-1 text-xs">
+          <Badge variant="outline" className="gap-1 text-xs text-slate-600">
             プロフ → Web {websiteRate !== null ? `${websiteRate}%` : "-"}
           </Badge>
         </div>

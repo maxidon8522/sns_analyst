@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { Globe2, Users } from "lucide-react";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState } from "@/components/dashboard/empty-state";
@@ -78,11 +79,19 @@ export function DemographicsCharts({ countries, cities, genderAge }: Demographic
   if (!hasDemographics) {
     return (
       <div className="grid gap-6 lg:grid-cols-2">
-        <Card className="border-slate-200 bg-white shadow-sm lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-base">視聴者属性</CardTitle>
+        <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm lg:col-span-2">
+          <CardHeader className="p-6 pb-4">
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-sky-500" />
+              <CardTitle className="text-lg font-semibold text-slate-800">
+                視聴者属性
+              </CardTitle>
+            </div>
+            <p className="text-sm text-slate-500">
+              年齢・性別・地域の傾向をまとめて確認します。
+            </p>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-6 pt-0">
             <EmptyState
               title="属性データ未取得"
               description="フォロワー数が100人未満、またはデータ収集中です。"
@@ -99,19 +108,35 @@ export function DemographicsCharts({ countries, cities, genderAge }: Demographic
 
   const hasAgeGender = ageGenderData.length > 0;
   const hasGeo = topCountries.length > 0 || topCities.length > 0;
+  const totalAudience =
+    (genderAge ? Object.values(genderAge).reduce((sum, value) => sum + (Number(value) || 0), 0) : 0) ||
+    (countries ? Object.values(countries).reduce((sum, value) => sum + (Number(value) || 0), 0) : 0);
+  const topCountry = topCountries[0];
+  const topCity = topCities[0];
 
   return (
     <div className="grid gap-6 lg:grid-cols-2">
-      <Card className="border-slate-200 bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">年齢・性別分布</CardTitle>
-          <p className="text-sm text-muted-foreground">
+      <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-sky-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              年齢・性別分布
+            </CardTitle>
+          </div>
+          <p className="text-sm text-slate-500">
             コア視聴者の構成比を把握します。
           </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4 p-6 pt-0">
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <p className="text-xs text-slate-500">サンプル数</p>
+            <p className="text-3xl font-bold text-slate-800">
+              {totalAudience ? totalAudience.toLocaleString("ja-JP") : "-"}
+            </p>
+          </div>
           {!hasAgeGender ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-500">
               まだデモグラフィックデータがありません。
             </p>
           ) : (
@@ -140,24 +165,42 @@ export function DemographicsCharts({ countries, cities, genderAge }: Demographic
         </CardContent>
       </Card>
 
-      <Card className="border-slate-200 bg-white shadow-sm">
-        <CardHeader>
-          <CardTitle className="text-base">国・都市ランキング</CardTitle>
-          <p className="text-sm text-muted-foreground">
+      <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Globe2 className="h-5 w-5 text-indigo-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              国・都市ランキング
+            </CardTitle>
+          </div>
+          <p className="text-sm text-slate-500">
             主要地域を上位5件で表示します。
           </p>
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 p-6 pt-0">
+          <div className="grid gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>上位国</span>
+              <span>{topCountry?.label ?? "-"}</span>
+            </div>
+            <p className="text-3xl font-bold text-slate-800">
+              {topCountry ? topCountry.value.toLocaleString("ja-JP") : "-"}
+            </p>
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>上位都市</span>
+              <span>{topCity?.label ?? "-"}</span>
+            </div>
+          </div>
           {!hasGeo ? (
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-slate-500">
               地域データがまだありません。
             </p>
           ) : (
             <>
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">上位 国</p>
+                <p className="text-xs font-medium text-slate-500">上位 国</p>
                 {topCountries.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-500">
                     国別データがありません。
                   </p>
                 ) : (
@@ -192,9 +235,9 @@ export function DemographicsCharts({ countries, cities, genderAge }: Demographic
               </div>
 
               <div className="space-y-2">
-                <p className="text-xs font-medium text-muted-foreground">上位 都市</p>
+                <p className="text-xs font-medium text-slate-500">上位 都市</p>
                 {topCities.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-500">
                     都市データがありません。
                   </p>
                 ) : (

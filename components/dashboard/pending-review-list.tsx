@@ -82,11 +82,9 @@ export function PendingReviewList() {
   };
 
   return (
-    <Card className="border-orange-200 bg-orange-50 mb-8">
+    <Card className="mb-8 border-slate-100 bg-white shadow-sm">
       <CardHeader>
-        <CardTitle className="text-orange-700">
-          📝 手動データ入力（強制表示モード）
-        </CardTitle>
+        <CardTitle>📝 手動データ入力（強制表示モード）</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading && <p>読み込み中...</p>}
@@ -98,7 +96,7 @@ export function PendingReviewList() {
           return (
             <div key={video.id} className="bg-white p-4 rounded-lg shadow-sm border">
             <div className="flex gap-4 items-center mb-4">
-               <div className="w-16 h-16 bg-gray-100 rounded overflow-hidden flex-shrink-0">
+               <div className="w-16 h-16 bg-slate-100 rounded overflow-hidden flex-shrink-0">
                   {thumbnailSrc ? (
                     <img
                       src={thumbnailSrc}
@@ -110,10 +108,14 @@ export function PendingReviewList() {
                   )}
                </div>
                <div className="flex-1">
-                 <p className="text-sm font-bold line-clamp-1">{video.caption || "キャプションなし"}</p>
-                 <p className="text-xs text-gray-500">{new Date(video.posted_at).toLocaleDateString()}</p>
+                 <p className="text-sm font-bold text-slate-800 line-clamp-1">
+                   {video.caption || "キャプションなし"}
+                 </p>
+                 <p className="text-xs text-slate-400">{new Date(video.posted_at).toLocaleDateString()}</p>
                </div>
-               {video.manual_input_done && <span className="text-xs text-green-600 font-bold">入力済</span>}
+               {video.manual_input_done && (
+                 <span className="text-xs font-semibold text-emerald-600">入力済</span>
+               )}
             </div>
 
             {editingId === video.id ? (

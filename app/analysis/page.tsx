@@ -252,15 +252,22 @@ export default function AnalysisPage() {
 
   const metricLabel = METRIC_LABELS[selectedMetric];
   const audienceData = accountInsights?.audience_data as AudienceData | null;
+  const accountStatusMessage =
+    accountInsights?.reach_daily && accountInsights?.profile_views
+      ? "現在のアカウント健全性は良好です"
+      : "最新のアカウント状況を更新中です";
 
   return (
-    <div className="container mx-auto p-6 space-y-10 max-w-6xl">
-      <HeroAnalysisSection
-        videos={videos}
-        metricKey={selectedMetric}
-        metricLabel={metricLabel}
-        manualInputAnchorId="manual-input"
-      />
+    <div className="container mx-auto space-y-8 max-w-6xl">
+      <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <p className="text-xs font-medium uppercase tracking-[0.2em] text-slate-400">
+          Dashboard
+        </p>
+        <h1 className="text-2xl font-bold text-slate-800 mt-2">
+          こんにちは、Polycleさん 👋
+        </h1>
+        <p className="text-sm text-slate-500 mt-1">{accountStatusMessage}</p>
+      </div>
 
       {error && (
         <Alert variant="destructive">
@@ -269,10 +276,74 @@ export default function AnalysisPage() {
         </Alert>
       )}
 
-      <Card className="border-slate-200/80 bg-white shadow-sm">
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <HeroAnalysisSection
+            videos={videos}
+            metricKey={selectedMetric}
+            metricLabel={metricLabel}
+            manualInputAnchorId="manual-input"
+          />
+        </div>
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1">
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium text-slate-500">
+                分析した投稿数
+              </CardTitle>
+              <Video className="h-4 w-4 text-slate-400" />
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-2xl font-bold text-slate-800">{stats.totalPosts}</div>
+              <p className="text-xs text-slate-400">件の動画</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium text-slate-500">平均保存数</CardTitle>
+              <Bookmark className="h-4 w-4 text-rose-400" />
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-2xl font-bold text-slate-800">{stats.avgSaves}</div>
+              <p className="text-xs text-slate-400">回 / 投稿</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium text-slate-500">平均リーチ</CardTitle>
+              <Users className="h-4 w-4 text-sky-400" />
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-2xl font-bold text-slate-800">
+                {stats.avgReach > 0 ? stats.avgReach : "-"}
+              </div>
+              <p className="text-xs text-slate-400">アカウント (手動入力分)</p>
+            </CardContent>
+          </Card>
+
+          <Card className="border-slate-200 bg-white shadow-sm">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
+              <CardTitle className="text-xs font-medium text-slate-500">最高パフォーマンス</CardTitle>
+              <TrendingUp className="h-4 w-4 text-emerald-400" />
+            </CardHeader>
+            <CardContent className="pt-2">
+              <div className="text-2xl font-bold text-slate-800">
+                {stats.topPost?.metrics_logs?.[0]?.saves || 0}
+              </div>
+              <p className="text-xs text-slate-400 truncate">
+                {stats.topPost?.caption?.slice(0, 15) || "-"}...
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <Card className="border-slate-200 bg-white shadow-sm">
         <CardContent className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="space-y-1">
-            <Label htmlFor="metric-select" className="text-sm font-medium text-muted-foreground">
+            <Label htmlFor="metric-select" className="text-sm font-medium text-slate-500">
               分析指標
             </Label>
             <Select
@@ -293,7 +364,7 @@ export default function AnalysisPage() {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="long-term-range" className="text-sm font-medium text-muted-foreground">
+            <Label htmlFor="long-term-range" className="text-sm font-medium text-slate-500">
               分析期間
             </Label>
             <Select
@@ -314,7 +385,7 @@ export default function AnalysisPage() {
           </div>
 
           <div className="space-y-1">
-            <Label htmlFor="range-select" className="text-sm font-medium text-muted-foreground">
+            <Label htmlFor="range-select" className="text-sm font-medium text-slate-500">
               比較件数
             </Label>
             <Select
@@ -337,81 +408,27 @@ export default function AnalysisPage() {
         </CardContent>
       </Card>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card className="border-slate-100 bg-white shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-muted-foreground">
-              分析した投稿数
-            </CardTitle>
-            <Video className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-xl font-semibold">{stats.totalPosts}</div>
-            <p className="text-xs text-muted-foreground">件の動画</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-100 bg-white shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-muted-foreground">平均保存数</CardTitle>
-            <Bookmark className="h-4 w-4 text-pink-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-xl font-semibold">{stats.avgSaves}</div>
-            <p className="text-xs text-muted-foreground">回 / 投稿</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-slate-100 bg-white shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-muted-foreground">平均リーチ</CardTitle>
-            <Users className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-xl font-semibold">{stats.avgReach > 0 ? stats.avgReach : "-"}</div>
-            <p className="text-xs text-muted-foreground">アカウント (手動入力分)</p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-indigo-100 bg-gradient-to-br from-indigo-50 to-white shadow-sm">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-            <CardTitle className="text-xs font-medium text-indigo-900">最高パフォーマンス</CardTitle>
-            <TrendingUp className="h-4 w-4 text-indigo-600" />
-          </CardHeader>
-          <CardContent className="pt-2">
-            <div className="text-xl font-semibold text-indigo-700">
-              {stats.topPost?.metrics_logs?.[0]?.saves || 0}
-            </div>
-            <p className="text-xs text-indigo-600/80 truncate">
-              {stats.topPost?.caption?.slice(0, 15) || "-"}...
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid gap-6 lg:grid-cols-2">
+        <MarketingFunnel
+          reach={accountInsights?.reach_daily}
+          profileViews={accountInsights?.profile_views}
+          websiteClicks={accountInsights?.website_clicks}
+        />
+        <ActivityChart peakHour={accountInsights?.online_peak_hour ?? null} />
       </div>
 
-      <div className="space-y-4 mt-6">
-        <h2 className="text-lg font-semibold tracking-tight">期間別推移</h2>
+      <DemographicsCharts
+        countries={audienceData?.countries}
+        cities={audienceData?.cities}
+        genderAge={audienceData?.genderAge}
+      />
+
+      <div className="space-y-4 mt-4">
+        <h2 className="text-lg font-bold text-slate-800 tracking-tight">期間別推移</h2>
         <LongTermChart
           data={longTermData}
           videos={videoLegends}
           metricLabel={metricLabel}
-        />
-      </div>
-
-      <div className="space-y-6">
-        <h2 className="text-lg font-semibold tracking-tight">🌍 オーディエンスと戦略</h2>
-        <div className="grid gap-6 lg:grid-cols-2">
-          <MarketingFunnel
-            reach={accountInsights?.reach_daily}
-            profileViews={accountInsights?.profile_views}
-            websiteClicks={accountInsights?.website_clicks}
-          />
-          <ActivityChart peakHour={accountInsights?.online_peak_hour ?? null} />
-        </div>
-        <DemographicsCharts
-          countries={audienceData?.countries}
-          cities={audienceData?.cities}
-          genderAge={audienceData?.genderAge}
         />
       </div>
 

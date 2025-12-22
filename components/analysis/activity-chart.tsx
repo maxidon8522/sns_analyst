@@ -10,6 +10,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
+import { Clock } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,16 +29,19 @@ export function ActivityChart({ peakHour, hourlyData }: ActivityChartProps) {
 
   if (!hasPeakHour || !hasHourlyData) {
     return (
-      <Card className="border-slate-200 bg-white shadow-sm">
-        <CardHeader className="flex flex-row items-center justify-between gap-4">
-          <div>
-            <CardTitle className="text-base">ゴールデンタイム分析</CardTitle>
-            <p className="text-sm text-muted-foreground">
-              フォロワーのアクティブ時間帯を把握します。
-            </p>
+      <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+        <CardHeader className="p-6 pb-4">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              ゴールデンタイム分析
+            </CardTitle>
           </div>
+          <p className="text-sm text-slate-500">
+            フォロワーのアクティブ時間帯を把握します。
+          </p>
         </CardHeader>
-        <CardContent>
+        <CardContent className="p-6 pt-0">
           <EmptyState
             title="ピーク時間 算出中"
             description="フォロワーのアクティブ時間を分析中です。"
@@ -54,19 +58,31 @@ export function ActivityChart({ peakHour, hourlyData }: ActivityChartProps) {
   }));
 
   return (
-    <Card className="border-slate-200 bg-white shadow-sm">
-      <CardHeader className="flex flex-row items-center justify-between gap-4">
-        <div>
-          <CardTitle className="text-base">ゴールデンタイム分析</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            フォロワーのアクティブ時間帯を把握します。
-          </p>
+    <Card className="rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <CardHeader className="p-6 pb-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Clock className="h-5 w-5 text-amber-500" />
+            <CardTitle className="text-lg font-semibold text-slate-800">
+              ゴールデンタイム分析
+            </CardTitle>
+          </div>
+          <Badge className="bg-amber-100 text-amber-700">
+            🔥 狙い目: {peakHour}:00
+          </Badge>
         </div>
-        <Badge className="bg-amber-500 text-white">
-          🔥 狙い目: {peakHour}:00
-        </Badge>
+        <p className="text-sm text-slate-500">
+          フォロワーのアクティブ時間帯を把握します。
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-6 pt-0">
+        <div className="flex items-end justify-between gap-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+          <div>
+            <p className="text-xs text-slate-500">ピーク時間</p>
+            <p className="text-3xl font-bold text-slate-800">{peakHour}:00</p>
+          </div>
+          <p className="text-xs text-slate-500">投稿の狙い目を明確化</p>
+        </div>
         <div className="h-[260px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 10, right: 16, left: 0, bottom: 0 }}>
