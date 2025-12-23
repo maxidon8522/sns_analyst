@@ -12,8 +12,8 @@ export function Header() {
           <Image
             src="/logo.jpg"
             alt="Vlog Analyst ロゴ"
-            width={170}
-            height={170}
+            width={130}
+            height={130}
             priority
             className="rounded-md shadow-sm"
           />
