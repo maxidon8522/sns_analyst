@@ -107,45 +107,61 @@ export default function InstagramPage() {
       )}
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {posts.map((post) => (
-          <Card key={post.id} className="flex flex-col">
-            <CardHeader>
-              <div className="relative mb-2 aspect-video overflow-hidden rounded-md bg-black/10">
-                {post.media_type === "VIDEO" || post.media_type === "REELS" ? (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                    🎥 Video
-                  </div>
-                ) : (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
-                    📷 Image
-                  </div>
-                )}
-              </div>
-              <div className="flex items-start justify-between gap-2">
-                <Badge variant="secondary">{post.media_type}</Badge>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(post.timestamp).toLocaleDateString()}
-                </span>
-              </div>
-            </CardHeader>
-            <CardContent className="flex-1">
-              <p className="line-clamp-3 text-sm text-gray-700">
-                {post.caption || "キャプションなし"}
-              </p>
-              <div className="mt-4 flex gap-4 text-sm text-muted-foreground">
-                <span>❤️ {post.like_count}</span>
-                <span>💬 {post.comments_count}</span>
-              </div>
-            </CardContent>
-            <CardFooter>
-              <Button asChild className="w-full">
-                <Link href={`/videos/new?ig_media_id=${post.id}`}>
-                  この投稿を分析する
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        ))}
+        {posts.map((post) => {
+          const isVideo = post.media_type === "VIDEO" || post.media_type === "REELS";
+          const imageSrc = post.thumbnail_url || post.media_url;
+
+          return (
+            <Card key={post.id} className="flex flex-col">
+              <CardHeader>
+                <div className="relative mb-2 aspect-video overflow-hidden rounded-md bg-black/10">
+                  {imageSrc ? (
+                    <>
+                      <img
+                        src={imageSrc}
+                        alt={post.caption || "Instagram post"}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                      {isVideo && (
+                        <div className="absolute bottom-2 left-2 rounded-md bg-black/60 px-2 py-1 text-xs text-white">
+                          🎥 Video
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-500">
+                      {isVideo ? "🎥 Video" : "📷 Image"}
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-start justify-between gap-2">
+                  <Badge variant="secondary">{post.media_type}</Badge>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(post.timestamp).toLocaleDateString()}
+                  </span>
+                </div>
+              </CardHeader>
+              <CardContent className="flex-1">
+                <p className="line-clamp-3 text-sm text-gray-700">
+                  {post.caption || "キャプションなし"}
+                </p>
+                <div className="mt-4 flex gap-4 text-sm text-muted-foreground">
+                  <span>❤️ {post.like_count}</span>
+                  <span>💬 {post.comments_count}</span>
+                </div>
+              </CardContent>
+              <CardFooter>
+                <Button asChild className="w-full">
+                  <Link href={`/videos/new?ig_media_id=${post.id}`}>
+                    この投稿を分析する
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

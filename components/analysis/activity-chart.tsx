@@ -24,7 +24,7 @@ type ActivityChartProps = {
 const formatHourLabel = (hour: number) => `${hour}`;
 
 export function ActivityChart({ peakHour, hourlyData }: ActivityChartProps) {
-  const hasPeakHour = typeof peakHour === "number" && peakHour > 0;
+  const hasPeakHour = typeof peakHour === "number" && peakHour >= 0;
   const hasHourlyData = hourlyData && Object.keys(hourlyData).length > 0;
 
   if (!hasPeakHour || !hasHourlyData) {

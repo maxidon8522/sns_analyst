@@ -35,6 +35,7 @@ type AudienceData = {
   countries?: Record<string, number>;
   cities?: Record<string, number>;
   genderAge?: Record<string, number>;
+  onlineFollowersByHour?: Record<string, number>;
 };
 
 const METRIC_LABELS: Record<MetricKey, string> = {
@@ -414,7 +415,10 @@ export default function AnalysisPage() {
           profileViews={accountInsights?.profile_views}
           websiteClicks={accountInsights?.website_clicks}
         />
-        <ActivityChart peakHour={accountInsights?.online_peak_hour ?? null} />
+        <ActivityChart
+          peakHour={accountInsights?.online_peak_hour ?? null}
+          hourlyData={audienceData?.onlineFollowersByHour ?? null}
+        />
       </div>
 
       <DemographicsCharts

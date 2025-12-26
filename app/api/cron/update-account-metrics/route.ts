@@ -56,7 +56,10 @@ export async function GET() {
       reach_daily: insights.dailyStats.reachDaily,
       impressions_daily: insights.dailyStats.impressionsDaily,
       online_peak_hour: insights.dailyStats.onlinePeakHour,
-      audience_data: insights.demographics,
+      audience_data: {
+        ...insights.demographics,
+        onlineFollowersByHour: insights.dailyStats.onlineFollowersByHour,
+      },
     };
 
     const { error } = await supabase
