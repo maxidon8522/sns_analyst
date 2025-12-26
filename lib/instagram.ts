@@ -298,6 +298,18 @@ const getDayRange = () => {
   };
 };
 
+const getRangeDays = (days: number) => {
+  const today = new Date();
+  const end = new Date(today);
+  end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - days);
+  return {
+    since: Math.floor(start.getTime() / 1000),
+    until: Math.floor(end.getTime() / 1000),
+  };
+};
+
 const fetchInsights = async (url: string) => {
   try {
     const res = await fetch(url, { cache: 'no-store' });
@@ -326,6 +338,31 @@ const getLatestValuePayload = (entry: any): unknown => {
     return bTime - aTime;
   })[0];
   return latest?.value ?? null;
+};
+
+const getLatestNonEmptyValuePayload = (entry: any): unknown => {
+  if (!entry) return null;
+  if (entry?.total_value?.value !== undefined) {
+    return entry.total_value.value;
+  }
+  const values = Array.isArray(entry?.values) ? entry.values : [];
+  if (values.length === 0) return null;
+
+  const sorted = [...values].sort((a, b) => {
+    const aTime = a?.end_time ? new Date(a.end_time).getTime() : 0;
+    const bTime = b?.end_time ? new Date(b.end_time).getTime() : 0;
+    return bTime - aTime;
+  });
+
+  for (const entryValue of sorted) {
+    const value = entryValue?.value;
+    if (value && typeof value === 'object' && !Array.isArray(value)) {
+      const hasValues = Object.values(value).some((v) => Number(v) > 0);
+      if (hasValues) return value;
+    }
+  }
+
+  return sorted[0]?.value ?? null;
 };
 
 const getLatestNumberValue = (entry: any): number =>
@@ -408,6 +445,7 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
   if (!ACCESS_TOKEN || !USER_ID) return null;
 
   const { since, until } = getDayRange();
+  const onlineRange = getRangeDays(30);
 
   const demographicsMetrics = 'follower_demographics';
   const demographicsBreakdowns = [
@@ -437,7 +475,8 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
 
   const onlineFollowersUrl =
     `${BASE_URL}/${USER_ID}/insights?metric=online_followers` +
-    `&period=lifetime&access_token=${ACCESS_TOKEN}`;
+    `&period=lifetime&since=${onlineRange.since}&until=${onlineRange.until}` +
+    `&access_token=${ACCESS_TOKEN}`;
 
   const [totalsResponse, seriesResponse, onlineFollowersResponse] = await Promise.all([
     fetchInsights(dailyTotalsUrl),
@@ -469,7 +508,9 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
     (item: any) => item?.name === 'follower_count' || item?.name === 'followers_count',
   );
 
-  const onlineFollowersByHour = normalizeMetricMap(getLatestValuePayload(onlineFollowers));
+  const onlineFollowersByHour = normalizeMetricMap(
+    getLatestNonEmptyValuePayload(onlineFollowers),
+  );
 
   let onlinePeakHour: number | null = null;
   let peakValue = -1;
