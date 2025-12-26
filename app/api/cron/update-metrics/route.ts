@@ -2,8 +2,25 @@ import { NextResponse, type NextRequest } from 'next/server';
 
 import { createClient } from '@supabase/supabase-js';
 
-import { getMediaInsights } from '@/lib/instagram';
+import { getAccountInsights, getMediaInsights } from '@/lib/instagram';
 import type { Database } from '@/types/database';
+
+export const dynamic = 'force-dynamic';
+
+const formatLocalDate = (date: Date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getRecordDate = () => {
+  const end = new Date();
+  end.setHours(0, 0, 0, 0);
+  const start = new Date(end);
+  start.setDate(start.getDate() - 1);
+  return formatLocalDate(start);
+};
 
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get('authorization');
@@ -23,6 +40,45 @@ export async function POST(request: NextRequest) {
   }
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
+
+  let accountError: string | null = null;
+  let accountDate: string | null = null;
+
+  try {
+    const insights = await getAccountInsights();
+
+    if (!insights) {
+      throw new Error('Failed to fetch account insights');
+    }
+
+    const recordDate = getRecordDate();
+    const payload = {
+      date: recordDate,
+      followers_count: insights.dailyStats.followersCount,
+      profile_views: insights.dailyStats.profileViews,
+      website_clicks: insights.dailyStats.websiteClicks,
+      reach_daily: insights.dailyStats.reachDaily,
+      impressions_daily: insights.dailyStats.impressionsDaily,
+      online_peak_hour: insights.dailyStats.onlinePeakHour,
+      audience_data: {
+        ...insights.demographics,
+        onlineFollowersByHour: insights.dailyStats.onlineFollowersByHour,
+      },
+    };
+
+    const { error } = await supabase
+      .from('account_insights')
+      .upsert(payload, { onConflict: 'date' });
+
+    if (error) {
+      throw error;
+    }
+
+    accountDate = recordDate;
+  } catch (error) {
+    console.error('Account insights update error:', error);
+    accountError = error instanceof Error ? error.message : String(error);
+  }
 
   try {
     const thirtyDaysAgo = new Date();
@@ -73,12 +129,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      updated: results.length,
-      failures: errors.length,
-      details: { results, errors },
-    });
+    const responseBody = {
+      success: !accountError,
+      accountInsights: {
+        success: !accountError,
+        date: accountDate,
+        error: accountError,
+      },
+      videoMetrics: {
+        updated: results.length,
+        failures: errors.length,
+        details: { results, errors },
+      },
+    };
+
+    if (accountError) {
+      return NextResponse.json(
+        responseBody,
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json(responseBody);
   } catch (error) {
     console.error('Cron Job Error:', error);
     return NextResponse.json(
