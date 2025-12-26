@@ -86,6 +86,134 @@ const parseInsightValue = (value: unknown): Record<string, number> => {
   );
 };
 
+const normalizeMetricMap = (value: unknown): Record<string, number> => {
+  if (!value) return {};
+
+  if (Array.isArray(value)) {
+    return value.reduce<Record<string, number>>((acc, entry) => {
+      if (!entry || typeof entry !== 'object') return acc;
+      const obj = entry as Record<string, unknown>;
+      const keyRaw = obj.value ?? obj.label ?? obj.name;
+      const countRaw = obj.count ?? obj.total_value ?? obj.value_count ?? obj.value;
+      const key =
+        typeof keyRaw === 'string' || typeof keyRaw === 'number' ? String(keyRaw) : null;
+      const count = safeNumber(countRaw);
+      if (key && Number.isFinite(count)) {
+        acc[key] = (acc[key] ?? 0) + count;
+      }
+      return acc;
+    }, {});
+  }
+
+  if (typeof value === 'object') {
+    return Object.entries(value as Record<string, unknown>).reduce<Record<string, number>>(
+      (acc, [key, val]) => {
+        if (typeof val === 'number' || typeof val === 'string') {
+          acc[key] = safeNumber(val);
+          return acc;
+        }
+        if (val && typeof val === 'object') {
+          const nested = val as Record<string, unknown>;
+          if ('count' in nested) {
+            acc[key] = safeNumber(nested.count);
+          } else if ('value' in nested) {
+            acc[key] = safeNumber(nested.value);
+          }
+        }
+        return acc;
+      },
+      {},
+    );
+  }
+
+  return {};
+};
+
+const normalizeBreakdownList = (
+  value: unknown,
+  dimension?: string,
+): Record<string, number> => {
+  if (!Array.isArray(value)) return {};
+  return value.reduce<Record<string, number>>((acc, entry) => {
+    if (!entry || typeof entry !== 'object') return acc;
+    const obj = entry as Record<string, unknown>;
+    if (dimension && obj.dimension && obj.dimension !== dimension) return acc;
+    const keyRaw = obj.value ?? obj.label ?? obj.name;
+    const countRaw = obj.count ?? obj.total_value ?? obj.value_count ?? obj.value;
+    const key =
+      typeof keyRaw === 'string' || typeof keyRaw === 'number' ? String(keyRaw) : null;
+    const count = safeNumber(countRaw);
+    if (key && Number.isFinite(count)) {
+      acc[key] = (acc[key] ?? 0) + count;
+    }
+    return acc;
+  }, {});
+};
+
+const extractDemographicBreakdown = (
+  value: unknown,
+  dimension: string,
+): Record<string, number> => {
+  if (!value) return {};
+
+  if (Array.isArray(value)) {
+    return normalizeBreakdownList(value, dimension);
+  }
+
+  if (typeof value !== 'object') return {};
+  const obj = value as Record<string, unknown>;
+
+  const candidates = [
+    obj,
+    obj.breakdown,
+    obj.breakdowns,
+    obj.value,
+    (obj.value as any)?.breakdown,
+    (obj.value as any)?.breakdowns,
+    obj.total_value,
+    (obj.total_value as any)?.breakdown,
+    (obj.total_value as any)?.breakdowns,
+    obj.data,
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    if (Array.isArray(candidate)) {
+      const list = normalizeBreakdownList(candidate, dimension);
+      if (Object.keys(list).length > 0) return list;
+      continue;
+    }
+    if (typeof candidate !== 'object') continue;
+    const mapCandidate = candidate as Record<string, unknown>;
+    if (dimension in mapCandidate) {
+      const map = normalizeMetricMap(mapCandidate[dimension]);
+      if (Object.keys(map).length > 0) return map;
+    }
+  }
+
+  return {};
+};
+
+const normalizeGenderAge = (map: Record<string, number>): Record<string, number> => {
+  if (Object.keys(map).length === 0) return map;
+  const keys = Object.keys(map);
+  const hasDot = keys.some((key) => key.includes('.'));
+  if (hasDot) return map;
+
+  const genderOnly = keys.every((key) => ['M', 'F', 'U', 'UNKNOWN', 'OTHER'].includes(key));
+  if (genderOnly) {
+    return keys.reduce<Record<string, number>>((acc, key) => {
+      acc[`${key}.不明`] = map[key];
+      return acc;
+    }, {});
+  }
+
+  return keys.reduce<Record<string, number>>((acc, key) => {
+    acc[`U.${key}`] = map[key];
+    return acc;
+  }, {});
+};
+
 const getDayRange = () => {
   const today = new Date();
   const end = new Date(today);
@@ -113,11 +241,30 @@ const fetchInsights = async (url: string) => {
   }
 };
 
+const getLatestValuePayload = (entry: any): unknown => {
+  if (!entry) return null;
+  if (entry?.total_value?.value !== undefined) {
+    return entry.total_value.value;
+  }
+  const values = Array.isArray(entry?.values) ? entry.values : [];
+  if (values.length === 0) return null;
+  const latest = [...values].sort((a, b) => {
+    const aTime = a?.end_time ? new Date(a.end_time).getTime() : 0;
+    const bTime = b?.end_time ? new Date(b.end_time).getTime() : 0;
+    return bTime - aTime;
+  })[0];
+  return latest?.value ?? null;
+};
+
+const getLatestNumberValue = (entry: any): number =>
+  safeNumber(getLatestValuePayload(entry));
+
 export async function getMediaInsights(mediaId: string) {
   if (!ACCESS_TOKEN) return null;
 
   let likes = 0;
   let comments = 0;
+  let insightsOk = false;
 
   try {
     const mediaUrl = `${BASE_URL}/${mediaId}?fields=like_count,comments_count&access_token=${ACCESS_TOKEN}`;
@@ -143,6 +290,7 @@ export async function getMediaInsights(mediaId: string) {
   try {
     const res = await fetch(insightsUrl, { cache: 'no-store' });
     if (res.ok) {
+      insightsOk = true;
       const json = await res.json();
       const data = json?.data;
 
@@ -180,46 +328,70 @@ export async function getMediaInsights(mediaId: string) {
     views,
     reach,
     saved,
+    insightsOk,
   };
 }
 
 export const getAccountInsights = async (): Promise<AccountInsights | null> => {
   if (!ACCESS_TOKEN || !USER_ID) return null;
 
-  const demographicsMetrics = 'audience_country,audience_city,audience_gender_age';
-  const demographicsUrl = `${BASE_URL}/${USER_ID}/insights?metric=${demographicsMetrics}&period=lifetime&access_token=${ACCESS_TOKEN}`;
-
-  const dailyMetrics =
-    'profile_views,website_clicks,online_followers,reach,impressions,follower_count';
   const { since, until } = getDayRange();
-  const dailyUrl = `${BASE_URL}/${USER_ID}/insights?metric=${dailyMetrics}&period=day&since=${since}&until=${until}&access_token=${ACCESS_TOKEN}`;
 
-  const [demographicsResponse, dailyResponse] = await Promise.all([
-    fetchInsights(demographicsUrl),
-    fetchInsights(dailyUrl),
-  ]);
+  const demographicsMetrics = 'follower_demographics';
+  const demographicsUrl =
+    `${BASE_URL}/${USER_ID}/insights?metric=${demographicsMetrics}` +
+    `&period=lifetime&breakdown=age,gender,city,country&metric_type=total_value` +
+    `&access_token=${ACCESS_TOKEN}`;
+
+  const dailyTotalsMetrics = 'profile_views,website_clicks';
+  const dailyTotalsUrl =
+    `${BASE_URL}/${USER_ID}/insights?metric=${dailyTotalsMetrics}` +
+    `&period=day&metric_type=total_value&since=${since}&until=${until}` +
+    `&access_token=${ACCESS_TOKEN}`;
+
+  const dailySeriesMetrics = 'reach,follower_count';
+  const dailySeriesWithRangeUrl =
+    `${BASE_URL}/${USER_ID}/insights?metric=${dailySeriesMetrics}` +
+    `&period=day&since=${since}&until=${until}&access_token=${ACCESS_TOKEN}`;
+
+  const onlineFollowersUrl =
+    `${BASE_URL}/${USER_ID}/insights?metric=online_followers` +
+    `&period=lifetime&access_token=${ACCESS_TOKEN}`;
+
+  const [demographicsResponse, totalsResponse, seriesResponse, onlineFollowersResponse] =
+    await Promise.all([
+      fetchInsights(demographicsUrl),
+      fetchInsights(dailyTotalsUrl),
+      fetchInsights(dailySeriesWithRangeUrl),
+      fetchInsights(onlineFollowersUrl),
+    ]);
 
   const demographicsData = Array.isArray(demographicsResponse?.data)
     ? demographicsResponse.data
     : [];
-  const dailyData = Array.isArray(dailyResponse?.data) ? dailyResponse.data : [];
+  const totalsData = Array.isArray(totalsResponse?.data) ? totalsResponse.data : [];
+  const seriesData = Array.isArray(seriesResponse?.data) ? seriesResponse.data : [];
+  const onlineData = Array.isArray(onlineFollowersResponse?.data)
+    ? onlineFollowersResponse.data
+    : [];
 
   const audienceCountry = demographicsData.find((item: any) => item?.name === 'audience_country');
   const audienceCity = demographicsData.find((item: any) => item?.name === 'audience_city');
   const audienceGenderAge = demographicsData.find((item: any) => item?.name === 'audience_gender_age');
+  const followerDemographics = demographicsData.find((item: any) =>
+    ['follower_demographics', 'engaged_audience_demographics', 'reached_audience_demographics']
+      .includes(item?.name),
+  );
 
-  const profileViews = dailyData.find((item: any) => item?.name === 'profile_views');
-  const websiteClicks = dailyData.find((item: any) => item?.name === 'website_clicks');
-  const onlineFollowers = dailyData.find((item: any) => item?.name === 'online_followers');
-  const reachDaily = dailyData.find((item: any) => item?.name === 'reach');
-  const impressionsDaily = dailyData.find((item: any) => item?.name === 'impressions');
-  const followerCount = dailyData.find(
+  const profileViews = totalsData.find((item: any) => item?.name === 'profile_views');
+  const websiteClicks = totalsData.find((item: any) => item?.name === 'website_clicks');
+  const onlineFollowers = onlineData.find((item: any) => item?.name === 'online_followers');
+  const reachDaily = seriesData.find((item: any) => item?.name === 'reach');
+  const followerCount = seriesData.find(
     (item: any) => item?.name === 'follower_count' || item?.name === 'followers_count',
   );
 
-  const onlineFollowersByHour = parseInsightValue(
-    onlineFollowers?.values?.[0]?.value,
-  );
+  const onlineFollowersByHour = normalizeMetricMap(getLatestValuePayload(onlineFollowers));
 
   let onlinePeakHour: number | null = null;
   let peakValue = -1;
@@ -231,18 +403,61 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
     }
   });
 
+  const fallbackValues = Array.isArray(followerDemographics?.values)
+    ? followerDemographics.values
+    : [];
+
+  let countries = parseInsightValue(audienceCountry?.values?.[0]?.value);
+  let cities = parseInsightValue(audienceCity?.values?.[0]?.value);
+  let genderAge = parseInsightValue(audienceGenderAge?.values?.[0]?.value);
+
+  if (fallbackValues.length > 0) {
+    fallbackValues.forEach((entry: any) => {
+      const value = entry?.value ?? entry?.total_value ?? entry;
+      if (Object.keys(countries).length === 0) {
+        const next = extractDemographicBreakdown(value, 'country');
+        if (Object.keys(next).length > 0) countries = next;
+      }
+      if (Object.keys(cities).length === 0) {
+        const next = extractDemographicBreakdown(value, 'city');
+        if (Object.keys(next).length > 0) cities = next;
+      }
+      if (Object.keys(genderAge).length === 0) {
+        let next = extractDemographicBreakdown(value, 'gender_age');
+        if (Object.keys(next).length === 0) {
+          next = extractDemographicBreakdown(value, 'age_gender');
+        }
+        if (Object.keys(next).length === 0) {
+          const ageOnly = extractDemographicBreakdown(value, 'age');
+          if (Object.keys(ageOnly).length > 0) {
+            next = normalizeGenderAge(ageOnly);
+          }
+        }
+        if (Object.keys(next).length === 0) {
+          const genderOnly = extractDemographicBreakdown(value, 'gender');
+          if (Object.keys(genderOnly).length > 0) {
+            next = normalizeGenderAge(genderOnly);
+          }
+        }
+        if (Object.keys(next).length > 0) {
+          genderAge = next;
+        }
+      }
+    });
+  }
+
   return {
     demographics: {
-      countries: parseInsightValue(audienceCountry?.values?.[0]?.value),
-      cities: parseInsightValue(audienceCity?.values?.[0]?.value),
-      genderAge: parseInsightValue(audienceGenderAge?.values?.[0]?.value),
+      countries,
+      cities,
+      genderAge,
     },
     dailyStats: {
-      followersCount: safeNumber(followerCount?.values?.[0]?.value),
-      profileViews: safeNumber(profileViews?.values?.[0]?.value),
-      websiteClicks: safeNumber(websiteClicks?.values?.[0]?.value),
-      reachDaily: safeNumber(reachDaily?.values?.[0]?.value),
-      impressionsDaily: safeNumber(impressionsDaily?.values?.[0]?.value),
+      followersCount: getLatestNumberValue(followerCount),
+      profileViews: getLatestNumberValue(profileViews),
+      websiteClicks: getLatestNumberValue(websiteClicks),
+      reachDaily: getLatestNumberValue(reachDaily),
+      impressionsDaily: 0,
       onlinePeakHour,
       onlineFollowersByHour,
     },
@@ -262,21 +477,21 @@ export const getPostWithInsights = async (
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return null;
 
-    const post = await res.json();
-    const insights = await getMediaInsights(mediaId);
+  const post = await res.json();
+  const insights = await getMediaInsights(mediaId);
 
-    const fallbackInsights = {
-      views: 0,
-      reach: 0,
-      saved: 0,
-      likes: safeNumber(post.like_count),
-      comments: safeNumber(post.comments_count),
-    };
+  const fallbackInsights = {
+    views: 0,
+    reach: 0,
+    saved: 0,
+    likes: safeNumber(post.like_count),
+    comments: safeNumber(post.comments_count),
+  };
 
-    return {
-      ...post,
-      insights: insights || fallbackInsights,
-    };
+  return {
+    ...post,
+    insights: insights && insights.insightsOk !== false ? insights : fallbackInsights,
+  };
   } catch (error) {
     return null;
   }

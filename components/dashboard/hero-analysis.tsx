@@ -39,6 +39,11 @@ const buildTimepointMetrics = (video: any, metricKey: string): TimepointMetrics 
   const postedAt = new Date(video.posted_at);
   const logs = video.metrics_logs
     .filter((log: any) => log?.fetched_at)
+    .filter((log: any) =>
+      ["views", "likes", "saves", "comments"].some(
+        (key) => Number(log?.[key] ?? 0) > 0
+      )
+    )
     .map((log: any) => ({
       diffHours: differenceInHours(new Date(log.fetched_at), postedAt),
       value: Number(log?.[metricKey] ?? 0) || 0

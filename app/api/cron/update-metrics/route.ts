@@ -100,29 +100,26 @@ export async function POST(request: NextRequest) {
     for (const video of videos) {
       try {
         const insights = await getMediaInsights(video.ig_media_id);
-        const metrics = insights ?? {
-          likes: 0,
-          comments: 0,
-          views: 0,
-          reach: 0,
-          saved: 0,
-        };
+        if (!insights || insights.insightsOk === false) {
+          const errorMessage = insights
+            ? 'Insights response unavailable'
+            : 'Insights fetch failed';
+          console.warn(
+            `No insight data returned for media ${video.ig_media_id}. Skipping insert.`,
+          );
+          errors.push({ id: video.ig_media_id, error: errorMessage });
+          continue;
+        }
 
         await supabase.from('metrics_logs').insert({
           video_id: video.id,
-          views: metrics.views,
-          likes: metrics.likes,
-          comments: metrics.comments,
-          saves: metrics.saved,
+          views: insights.views,
+          likes: insights.likes,
+          comments: insights.comments,
+          saves: insights.saved,
           fetched_at: new Date().toISOString(),
         });
-        results.push({ id: video.ig_media_id, status: 'updated', data: metrics });
-
-        if (!insights) {
-          console.warn(
-            `No insight data returned for media ${video.ig_media_id}. Default metrics stored.`,
-          );
-        }
+        results.push({ id: video.ig_media_id, status: 'updated', data: insights });
       } catch (err) {
         console.error(`Error updating video ${video.ig_media_id}:`, err);
         errors.push({ id: video.ig_media_id, error: String(err) });

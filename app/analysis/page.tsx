@@ -160,10 +160,18 @@ export default function AnalysisPage() {
     let topPost = null;
 
     videos.forEach(v => {
-      // 最新のログを探す
-      const latestLog = v.metrics_logs?.sort((a: any, b: any) => 
-        new Date(b.fetched_at).getTime() - new Date(a.fetched_at).getTime()
-      )[0];
+      const validLogs = Array.isArray(v.metrics_logs)
+        ? v.metrics_logs.filter((log: any) =>
+            ["views", "likes", "saves", "comments"].some(
+              (key) => Number(log?.[key] ?? 0) > 0
+            )
+          )
+        : [];
+      const latestLog = validLogs
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.fetched_at).getTime() - new Date(a.fetched_at).getTime()
+        )[0];
       
       const currentSaves = latestLog?.saves || 0;
       totalSaves += currentSaves;
@@ -204,7 +212,13 @@ export default function AnalysisPage() {
       }
 
       recentVideos.forEach((video) => {
-        const logs = video.metrics_logs;
+        const logs = Array.isArray(video.metrics_logs)
+          ? video.metrics_logs.filter((log: any) =>
+              ["views", "likes", "saves", "comments"].some(
+                (key) => Number(log?.[key] ?? 0) > 0
+              )
+            )
+          : [];
         if (!Array.isArray(logs) || logs.length === 0 || !video.posted_at) return;
         const postedAt = new Date(video.posted_at);
 
