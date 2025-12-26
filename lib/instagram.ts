@@ -75,6 +75,15 @@ const safeNumber = (value: unknown): number => {
   return Number.isFinite(parsed) ? parsed : 0;
 };
 
+const toFiniteNumber = (value: unknown): number | null => {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value);
+    return Number.isFinite(parsed) ? parsed : null;
+  }
+  return null;
+};
+
 const parseInsightValue = (value: unknown): Record<string, number> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return Object.entries(value as Record<string, unknown>).reduce<Record<string, number>>(
@@ -97,8 +106,8 @@ const normalizeMetricMap = (value: unknown): Record<string, number> => {
       const countRaw = obj.count ?? obj.total_value ?? obj.value_count ?? obj.value;
       const key =
         typeof keyRaw === 'string' || typeof keyRaw === 'number' ? String(keyRaw) : null;
-      const count = safeNumber(countRaw);
-      if (key && Number.isFinite(count)) {
+      const count = toFiniteNumber(countRaw);
+      if (key && count !== null) {
         acc[key] = (acc[key] ?? 0) + count;
       }
       return acc;
@@ -109,15 +118,24 @@ const normalizeMetricMap = (value: unknown): Record<string, number> => {
     return Object.entries(value as Record<string, unknown>).reduce<Record<string, number>>(
       (acc, [key, val]) => {
         if (typeof val === 'number' || typeof val === 'string') {
-          acc[key] = safeNumber(val);
+          const numberValue = toFiniteNumber(val);
+          if (numberValue !== null) {
+            acc[key] = numberValue;
+          }
           return acc;
         }
         if (val && typeof val === 'object') {
           const nested = val as Record<string, unknown>;
           if ('count' in nested) {
-            acc[key] = safeNumber(nested.count);
+            const numberValue = toFiniteNumber(nested.count);
+            if (numberValue !== null) {
+              acc[key] = numberValue;
+            }
           } else if ('value' in nested) {
-            acc[key] = safeNumber(nested.value);
+            const numberValue = toFiniteNumber(nested.value);
+            if (numberValue !== null) {
+              acc[key] = numberValue;
+            }
           }
         }
         return acc;
@@ -150,6 +168,56 @@ const normalizeBreakdownList = (
   }, {});
 };
 
+const parseBreakdownResults = (
+  breakdowns: unknown,
+  dimension: string,
+): Record<string, number> => {
+  if (!Array.isArray(breakdowns)) return {};
+
+  const isGenderAge = dimension === 'gender_age' || dimension === 'age_gender';
+
+  for (const breakdown of breakdowns) {
+    if (!breakdown || typeof breakdown !== 'object') continue;
+    const block = breakdown as Record<string, unknown>;
+    const keys = Array.isArray(block.dimension_keys) ? block.dimension_keys : [];
+    const results = Array.isArray(block.results) ? block.results : [];
+
+    if (isGenderAge) {
+      if (keys.includes('age') && keys.includes('gender')) {
+        const ageIndex = keys.indexOf('age');
+        const genderIndex = keys.indexOf('gender');
+        return results.reduce<Record<string, number>>((acc, item) => {
+          if (!item || typeof item !== 'object') return acc;
+          const entry = item as Record<string, unknown>;
+          const values = Array.isArray(entry.dimension_values) ? entry.dimension_values : [];
+          const age = values[ageIndex];
+          const gender = values[genderIndex];
+          if (typeof age === 'string' && typeof gender === 'string') {
+            acc[`${gender}.${age}`] = safeNumber(entry.value);
+          }
+          return acc;
+        }, {});
+      }
+      continue;
+    }
+
+    if (keys.length === 1 && keys[0] === dimension) {
+      return results.reduce<Record<string, number>>((acc, item) => {
+        if (!item || typeof item !== 'object') return acc;
+        const entry = item as Record<string, unknown>;
+        const values = Array.isArray(entry.dimension_values) ? entry.dimension_values : [];
+        const key = values[0];
+        if (typeof key === 'string') {
+          acc[key] = safeNumber(entry.value);
+        }
+        return acc;
+      }, {});
+    }
+  }
+
+  return {};
+};
+
 const extractDemographicBreakdown = (
   value: unknown,
   dimension: string,
@@ -157,6 +225,8 @@ const extractDemographicBreakdown = (
   if (!value) return {};
 
   if (Array.isArray(value)) {
+    const breakdownMap = parseBreakdownResults(value, dimension);
+    if (Object.keys(breakdownMap).length > 0) return breakdownMap;
     return normalizeBreakdownList(value, dimension);
   }
 
@@ -179,6 +249,8 @@ const extractDemographicBreakdown = (
   for (const candidate of candidates) {
     if (!candidate) continue;
     if (Array.isArray(candidate)) {
+      const breakdownMap = parseBreakdownResults(candidate, dimension);
+      if (Object.keys(breakdownMap).length > 0) return breakdownMap;
       const list = normalizeBreakdownList(candidate, dimension);
       if (Object.keys(list).length > 0) return list;
       continue;
@@ -338,9 +410,18 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
   const { since, until } = getDayRange();
 
   const demographicsMetrics = 'follower_demographics';
-  const demographicsUrl =
+  const demographicsBreakdowns = [
+    'age,gender,city,country',
+    'age,gender',
+    'city,country',
+    'age',
+    'gender',
+    'city',
+    'country',
+  ];
+  const buildDemographicsUrl = (breakdown: string) =>
     `${BASE_URL}/${USER_ID}/insights?metric=${demographicsMetrics}` +
-    `&period=lifetime&breakdown=age,gender,city,country&metric_type=total_value` +
+    `&period=lifetime&breakdown=${breakdown}&metric_type=total_value` +
     `&access_token=${ACCESS_TOKEN}`;
 
   const dailyTotalsMetrics = 'profile_views,website_clicks';
@@ -358,30 +439,27 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
     `${BASE_URL}/${USER_ID}/insights?metric=online_followers` +
     `&period=lifetime&access_token=${ACCESS_TOKEN}`;
 
-  const [demographicsResponse, totalsResponse, seriesResponse, onlineFollowersResponse] =
-    await Promise.all([
-      fetchInsights(demographicsUrl),
-      fetchInsights(dailyTotalsUrl),
-      fetchInsights(dailySeriesWithRangeUrl),
-      fetchInsights(onlineFollowersUrl),
-    ]);
-
-  const demographicsData = Array.isArray(demographicsResponse?.data)
-    ? demographicsResponse.data
-    : [];
+  const [totalsResponse, seriesResponse, onlineFollowersResponse] = await Promise.all([
+    fetchInsights(dailyTotalsUrl),
+    fetchInsights(dailySeriesWithRangeUrl),
+    fetchInsights(onlineFollowersUrl),
+  ]);
   const totalsData = Array.isArray(totalsResponse?.data) ? totalsResponse.data : [];
   const seriesData = Array.isArray(seriesResponse?.data) ? seriesResponse.data : [];
   const onlineData = Array.isArray(onlineFollowersResponse?.data)
     ? onlineFollowersResponse.data
     : [];
 
-  const audienceCountry = demographicsData.find((item: any) => item?.name === 'audience_country');
-  const audienceCity = demographicsData.find((item: any) => item?.name === 'audience_city');
-  const audienceGenderAge = demographicsData.find((item: any) => item?.name === 'audience_gender_age');
-  const followerDemographics = demographicsData.find((item: any) =>
-    ['follower_demographics', 'engaged_audience_demographics', 'reached_audience_demographics']
-      .includes(item?.name),
-  );
+  const legacyAudienceEntry = (data: any[]) => {
+    const audienceCountry = data.find((item: any) => item?.name === 'audience_country');
+    const audienceCity = data.find((item: any) => item?.name === 'audience_city');
+    const audienceGenderAge = data.find((item: any) => item?.name === 'audience_gender_age');
+    return {
+      audienceCountry,
+      audienceCity,
+      audienceGenderAge,
+    };
+  };
 
   const profileViews = totalsData.find((item: any) => item?.name === 'profile_views');
   const websiteClicks = totalsData.find((item: any) => item?.name === 'website_clicks');
@@ -403,46 +481,114 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
     }
   });
 
-  const fallbackValues = Array.isArray(followerDemographics?.values)
-    ? followerDemographics.values
-    : [];
+  let countries: Record<string, number> = {};
+  let cities: Record<string, number> = {};
+  let genderAge: Record<string, number> = {};
 
-  let countries = parseInsightValue(audienceCountry?.values?.[0]?.value);
-  let cities = parseInsightValue(audienceCity?.values?.[0]?.value);
-  let genderAge = parseInsightValue(audienceGenderAge?.values?.[0]?.value);
+  const applyDemographicsValue = (value: unknown, breakdown: string) => {
+    if (!value) return;
 
-  if (fallbackValues.length > 0) {
-    fallbackValues.forEach((entry: any) => {
+    const parts = breakdown
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    const directMap = normalizeMetricMap(value);
+
+    if (Object.keys(directMap).length > 0 && parts.length === 1) {
+      const part = parts[0];
+      if (part === 'country' && Object.keys(countries).length === 0) {
+        countries = directMap;
+        return;
+      }
+      if (part === 'city' && Object.keys(cities).length === 0) {
+        cities = directMap;
+        return;
+      }
+      if (part === 'age' && Object.keys(genderAge).length === 0) {
+        genderAge = normalizeGenderAge(directMap);
+        return;
+      }
+      if (part === 'gender' && Object.keys(genderAge).length === 0) {
+        genderAge = normalizeGenderAge(directMap);
+        return;
+      }
+    }
+
+    if (
+      Object.keys(directMap).length > 0 &&
+      parts.includes('age') &&
+      parts.includes('gender') &&
+      Object.keys(genderAge).length === 0
+    ) {
+      genderAge = directMap;
+    }
+
+    if (Object.keys(countries).length === 0) {
+      const next = extractDemographicBreakdown(value, 'country');
+      if (Object.keys(next).length > 0) countries = next;
+    }
+    if (Object.keys(cities).length === 0) {
+      const next = extractDemographicBreakdown(value, 'city');
+      if (Object.keys(next).length > 0) cities = next;
+    }
+    if (Object.keys(genderAge).length === 0) {
+      let next = extractDemographicBreakdown(value, 'gender_age');
+      if (Object.keys(next).length === 0) {
+        next = extractDemographicBreakdown(value, 'age_gender');
+      }
+      if (Object.keys(next).length === 0) {
+        const ageOnly = extractDemographicBreakdown(value, 'age');
+        if (Object.keys(ageOnly).length > 0) {
+          next = normalizeGenderAge(ageOnly);
+        }
+      }
+      if (Object.keys(next).length === 0) {
+        const genderOnly = extractDemographicBreakdown(value, 'gender');
+        if (Object.keys(genderOnly).length > 0) {
+          next = normalizeGenderAge(genderOnly);
+        }
+      }
+      if (Object.keys(next).length > 0) {
+        genderAge = next;
+      }
+    }
+  };
+
+  const isDemographicsComplete = () =>
+    Object.keys(countries).length > 0 &&
+    Object.keys(cities).length > 0 &&
+    Object.keys(genderAge).length > 0;
+
+  for (const breakdown of demographicsBreakdowns) {
+    if (isDemographicsComplete()) break;
+    const response = await fetchInsights(buildDemographicsUrl(breakdown));
+    const data = Array.isArray(response?.data) ? response.data : [];
+    if (data.length === 0) continue;
+
+    const { audienceCountry, audienceCity, audienceGenderAge } = legacyAudienceEntry(data);
+    if (Object.keys(countries).length === 0) {
+      const legacy = parseInsightValue(audienceCountry?.values?.[0]?.value);
+      if (Object.keys(legacy).length > 0) countries = legacy;
+    }
+    if (Object.keys(cities).length === 0) {
+      const legacy = parseInsightValue(audienceCity?.values?.[0]?.value);
+      if (Object.keys(legacy).length > 0) cities = legacy;
+    }
+    if (Object.keys(genderAge).length === 0) {
+      const legacy = parseInsightValue(audienceGenderAge?.values?.[0]?.value);
+      if (Object.keys(legacy).length > 0) genderAge = legacy;
+    }
+
+    const followerDemographics = data.find((item: any) => item?.name === demographicsMetrics);
+    let values = Array.isArray(followerDemographics?.values)
+      ? followerDemographics.values
+      : [];
+    if (values.length === 0 && followerDemographics?.total_value) {
+      values = [followerDemographics.total_value];
+    }
+    values.forEach((entry: any) => {
       const value = entry?.value ?? entry?.total_value ?? entry;
-      if (Object.keys(countries).length === 0) {
-        const next = extractDemographicBreakdown(value, 'country');
-        if (Object.keys(next).length > 0) countries = next;
-      }
-      if (Object.keys(cities).length === 0) {
-        const next = extractDemographicBreakdown(value, 'city');
-        if (Object.keys(next).length > 0) cities = next;
-      }
-      if (Object.keys(genderAge).length === 0) {
-        let next = extractDemographicBreakdown(value, 'gender_age');
-        if (Object.keys(next).length === 0) {
-          next = extractDemographicBreakdown(value, 'age_gender');
-        }
-        if (Object.keys(next).length === 0) {
-          const ageOnly = extractDemographicBreakdown(value, 'age');
-          if (Object.keys(ageOnly).length > 0) {
-            next = normalizeGenderAge(ageOnly);
-          }
-        }
-        if (Object.keys(next).length === 0) {
-          const genderOnly = extractDemographicBreakdown(value, 'gender');
-          if (Object.keys(genderOnly).length > 0) {
-            next = normalizeGenderAge(genderOnly);
-          }
-        }
-        if (Object.keys(next).length > 0) {
-          genderAge = next;
-        }
-      }
+      applyDemographicsValue(value, breakdown);
     });
   }
 
