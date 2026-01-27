@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useAuth } from "@/components/auth/auth-provider";
 
 type Video = {
   id: string;
@@ -18,6 +19,7 @@ type Video = {
 
 export function PendingReviewList() {
   const supabase = useBrowserSupabaseClient();
+  const { user, session } = useAuth();
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -30,15 +32,16 @@ export function PendingReviewList() {
   });
 
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     void fetchAllVideos();
-  }, [supabase]);
+  }, [supabase, user]);
 
   const fetchAllVideos = async () => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     const { data } = await supabase
       .from("videos")
       .select("*")
+      .eq("user_id", user.id)
       .order("posted_at", { ascending: false })
       .limit(5);
 
@@ -59,7 +62,10 @@ export function PendingReviewList() {
       const response = await fetch("/api/manual-metrics", {
         method: "POST",
         headers: {
-          "Content-Type": "application/json"
+          "Content-Type": "application/json",
+          ...(session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : {}),
         },
         body: JSON.stringify({ id, ...payload })
       });

@@ -4,7 +4,7 @@ import type { User } from "@supabase/supabase-js";
 import { createServerSupabaseClient } from "@/utils/supabase/server";
 
 export const getUserFromRequest = async (
-  request: NextRequest,
+  request: Request | NextRequest,
 ): Promise<{ user: User | null; token: string | null; error?: string }> => {
   const authHeader = request.headers.get("authorization");
   if (!authHeader || !authHeader.startsWith("Bearer ")) {

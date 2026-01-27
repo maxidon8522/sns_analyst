@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 
 import { createServerSupabaseClient } from '@/utils/supabase/server';
+import { getUserFromRequest } from '@/utils/supabase/auth';
 
 export async function POST(request: Request) {
   try {
+    const { user } = await getUserFromRequest(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const { id, reach = 0, shares = 0, profile_visits = 0, follows = 0 } =
       await request.json();
 
@@ -24,7 +30,8 @@ export async function POST(request: Request) {
         follows,
         manual_input_done: true,
       })
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id);
 
     if (error) {
       console.error('Manual metrics update error:', error);

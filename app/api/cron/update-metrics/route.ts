@@ -41,113 +41,163 @@ export async function POST(request: NextRequest) {
 
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
 
-  let accountError: string | null = null;
-  let accountDate: string | null = null;
-
   try {
-    const insights = await getAccountInsights();
+    const { data: connections, error: connectionsError } = await supabase
+      .from('meta_connections')
+      .select('user_id, access_token, instagram_user_id')
+      .eq('provider', 'instagram');
 
-    if (!insights) {
-      throw new Error('Failed to fetch account insights');
+    if (connectionsError) {
+      throw connectionsError;
     }
 
-    const recordDate = getRecordDate();
-    const payload = {
-      date: recordDate,
-      followers_count: insights.dailyStats.followersCount,
-      profile_views: insights.dailyStats.profileViews,
-      website_clicks: insights.dailyStats.websiteClicks,
-      reach_daily: insights.dailyStats.reachDaily,
-      impressions_daily: insights.dailyStats.impressionsDaily,
-      online_peak_hour: insights.dailyStats.onlinePeakHour,
-      audience_data: {
-        ...insights.demographics,
-        onlineFollowersByHour: insights.dailyStats.onlineFollowersByHour,
-      },
-    };
-
-    const { error } = await supabase
-      .from('account_insights')
-      .upsert(payload, { onConflict: 'date' });
-
-    if (error) {
-      throw error;
+    if (!connections || connections.length === 0) {
+      return NextResponse.json({ message: 'No connections to update' });
     }
 
-    accountDate = recordDate;
-  } catch (error) {
-    console.error('Account insights update error:', error);
-    accountError = error instanceof Error ? error.message : String(error);
-  }
+    const results: Array<{
+      user_id: string;
+      account?: { success: boolean; error?: string; date?: string };
+      videoMetrics?: { updated: number; failures: number };
+    }> = [];
 
-  try {
-    const thirtyDaysAgo = new Date();
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    for (const connection of connections) {
+      const recordDate = getRecordDate();
+      let accountError: string | null = null;
 
-    const { data: videos, error: dbError } = await supabase
-      .from('videos')
-      .select('id, ig_media_id')
-      .gte('posted_at', thirtyDaysAgo.toISOString());
+      if (!connection.access_token || !connection.instagram_user_id) {
+        results.push({
+          user_id: connection.user_id,
+          account: {
+            success: false,
+            error: 'Missing access token or Instagram user id',
+            date: recordDate,
+          },
+          videoMetrics: { updated: 0, failures: 1 },
+        });
+        continue;
+      }
 
-    if (dbError) throw dbError;
-    if (!videos || videos.length === 0) {
-      return NextResponse.json({ message: 'No videos to update' });
-    }
-
-    const results: Array<{ id: string; status: string; data?: unknown }> = [];
-    const errors: Array<{ id: string; error: string }> = [];
-
-    for (const video of videos) {
       try {
-        const insights = await getMediaInsights(video.ig_media_id);
-        if (!insights || insights.insightsOk === false) {
-          const errorMessage = insights
-            ? 'Insights response unavailable'
-            : 'Insights fetch failed';
-          console.warn(
-            `No insight data returned for media ${video.ig_media_id}. Skipping insert.`,
-          );
-          errors.push({ id: video.ig_media_id, error: errorMessage });
+        const insights = await getAccountInsights({
+          accessToken: connection.access_token,
+          userId: connection.instagram_user_id,
+        });
+
+        if (!insights) {
+          throw new Error('Failed to fetch account insights');
+        }
+
+        const payload = {
+          user_id: connection.user_id,
+          date: recordDate,
+          followers_count: insights.dailyStats.followersCount,
+          profile_views: insights.dailyStats.profileViews,
+          website_clicks: insights.dailyStats.websiteClicks,
+          reach_daily: insights.dailyStats.reachDaily,
+          impressions_daily: insights.dailyStats.impressionsDaily,
+          online_peak_hour: insights.dailyStats.onlinePeakHour,
+          audience_data: {
+            ...insights.demographics,
+            onlineFollowersByHour: insights.dailyStats.onlineFollowersByHour,
+          },
+        };
+
+        const { error } = await supabase
+          .from('account_insights')
+          .upsert(payload, { onConflict: 'user_id,date' });
+
+        if (error) {
+          throw error;
+        }
+      } catch (error) {
+        console.error('Account insights update error:', error);
+        accountError = error instanceof Error ? error.message : String(error);
+      }
+
+      try {
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        const { data: videos, error: dbError } = await supabase
+          .from('videos')
+          .select('id, ig_media_id')
+          .eq('user_id', connection.user_id)
+          .gte('posted_at', thirtyDaysAgo.toISOString());
+
+        if (dbError) throw dbError;
+        if (!videos || videos.length === 0) {
+          results.push({
+            user_id: connection.user_id,
+            account: {
+              success: !accountError,
+              error: accountError ?? undefined,
+              date: recordDate,
+            },
+            videoMetrics: { updated: 0, failures: 0 },
+          });
           continue;
         }
 
-        await supabase.from('metrics_logs').insert({
-          video_id: video.id,
-          views: insights.views,
-          likes: insights.likes,
-          comments: insights.comments,
-          saves: insights.saved,
-          fetched_at: new Date().toISOString(),
+        const errors: Array<{ id: string; error: string }> = [];
+        let updated = 0;
+
+        for (const video of videos) {
+          try {
+            const insights = await getMediaInsights(video.ig_media_id, {
+              accessToken: connection.access_token,
+            });
+            if (!insights || insights.insightsOk === false) {
+              const errorMessage = insights
+                ? 'Insights response unavailable'
+                : 'Insights fetch failed';
+              console.warn(
+                `No insight data returned for media ${video.ig_media_id}. Skipping insert.`,
+              );
+              errors.push({ id: video.ig_media_id, error: errorMessage });
+              continue;
+            }
+
+            await supabase.from('metrics_logs').insert({
+              user_id: connection.user_id,
+              video_id: video.id,
+              views: insights.views,
+              likes: insights.likes,
+              comments: insights.comments,
+              saves: insights.saved,
+              fetched_at: new Date().toISOString(),
+            });
+            updated += 1;
+          } catch (err) {
+            console.error(`Error updating video ${video.ig_media_id}:`, err);
+            errors.push({ id: video.ig_media_id, error: String(err) });
+          }
+        }
+
+        results.push({
+          user_id: connection.user_id,
+          account: {
+            success: !accountError,
+            error: accountError ?? undefined,
+            date: recordDate,
+          },
+          videoMetrics: { updated, failures: errors.length },
         });
-        results.push({ id: video.ig_media_id, status: 'updated', data: insights });
-      } catch (err) {
-        console.error(`Error updating video ${video.ig_media_id}:`, err);
-        errors.push({ id: video.ig_media_id, error: String(err) });
+      } catch (error) {
+        console.error('Cron Job Error:', error);
+        results.push({
+          user_id: connection.user_id,
+          account: {
+            success: !accountError,
+            error: accountError ?? undefined,
+            date: recordDate,
+          },
+          videoMetrics: { updated: 0, failures: 1 },
+        });
       }
     }
 
-    const responseBody = {
-      success: !accountError,
-      accountInsights: {
-        success: !accountError,
-        date: accountDate,
-        error: accountError,
-      },
-      videoMetrics: {
-        updated: results.length,
-        failures: errors.length,
-        details: { results, errors },
-      },
-    };
-
-    if (accountError) {
-      return NextResponse.json(
-        responseBody,
-        { status: 500 },
-      );
-    }
-
-    return NextResponse.json(responseBody);
+    return NextResponse.json({ success: true, results });
   } catch (error) {
     console.error('Cron Job Error:', error);
     return NextResponse.json(

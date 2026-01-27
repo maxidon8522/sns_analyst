@@ -37,45 +37,73 @@ export async function GET() {
   const supabase = createClient<Database>(supabaseUrl, serviceRoleKey);
 
   try {
-    const insights = await getAccountInsights();
+    const { data: connections, error: connectionsError } = await supabase
+      .from('meta_connections')
+      .select('user_id, access_token, instagram_user_id')
+      .eq('provider', 'instagram');
 
-    if (!insights) {
-      console.error('Account insights fetch failed.');
-      return NextResponse.json(
-        { error: 'Failed to fetch account insights' },
-        { status: 500 },
-      );
+    if (connectionsError) {
+      throw connectionsError;
+    }
+
+    if (!connections || connections.length === 0) {
+      return NextResponse.json({ message: 'No connections to update' });
     }
 
     const recordDate = getRecordDate();
-    const payload = {
-      date: recordDate,
-      followers_count: insights.dailyStats.followersCount,
-      profile_views: insights.dailyStats.profileViews,
-      website_clicks: insights.dailyStats.websiteClicks,
-      reach_daily: insights.dailyStats.reachDaily,
-      impressions_daily: insights.dailyStats.impressionsDaily,
-      online_peak_hour: insights.dailyStats.onlinePeakHour,
-      audience_data: {
-        ...insights.demographics,
-        onlineFollowersByHour: insights.dailyStats.onlineFollowersByHour,
-      },
-    };
+    const results: Array<{ user_id: string; success: boolean; error?: string }> =
+      [];
 
-    const { error } = await supabase
-      .from('account_insights')
-      .upsert(payload, { onConflict: 'date' });
+    for (const connection of connections) {
+      try {
+        if (!connection.access_token || !connection.instagram_user_id) {
+          throw new Error('Missing access token or Instagram user id');
+        }
 
-    if (error) {
-      console.error('Account insights upsert error:', error);
-      return NextResponse.json(
-        { error: 'Failed to store account insights' },
-        { status: 500 },
-      );
+        const insights = await getAccountInsights({
+          accessToken: connection.access_token,
+          userId: connection.instagram_user_id,
+        });
+
+        if (!insights) {
+          throw new Error('Failed to fetch account insights');
+        }
+
+        const payload = {
+          user_id: connection.user_id,
+          date: recordDate,
+          followers_count: insights.dailyStats.followersCount,
+          profile_views: insights.dailyStats.profileViews,
+          website_clicks: insights.dailyStats.websiteClicks,
+          reach_daily: insights.dailyStats.reachDaily,
+          impressions_daily: insights.dailyStats.impressionsDaily,
+          online_peak_hour: insights.dailyStats.onlinePeakHour,
+          audience_data: {
+            ...insights.demographics,
+            onlineFollowersByHour: insights.dailyStats.onlineFollowersByHour,
+          },
+        };
+
+        const { error } = await supabase
+          .from('account_insights')
+          .upsert(payload, { onConflict: 'user_id,date' });
+
+        if (error) {
+          throw error;
+        }
+
+        results.push({ user_id: connection.user_id, success: true });
+      } catch (error) {
+        console.error('Account insights cron error:', error);
+        results.push({
+          user_id: connection.user_id,
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
     }
 
-    console.log('Account insights stored:', recordDate);
-    return NextResponse.json({ success: true, date: recordDate });
+    return NextResponse.json({ success: true, date: recordDate, results });
   } catch (error) {
     console.error('Account insights cron error:', error);
     return NextResponse.json(

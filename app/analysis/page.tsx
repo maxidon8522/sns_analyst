@@ -22,6 +22,7 @@ import { LongTermChart } from "@/components/analysis/long-term-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
 import type { Database } from "@/types/database";
+import { useAuth } from "@/components/auth/auth-provider";
 
 type MetricKey = "views" | "saves" | "likes" | "comments";
 type AccountInsightsRow = Database["public"]["Tables"]["account_insights"]["Row"];
@@ -47,6 +48,7 @@ const createLongTermBaseline = (range: number) =>
 
 export default function AnalysisPage() {
   const supabase = useBrowserSupabaseClient();
+  const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
@@ -65,17 +67,19 @@ export default function AnalysisPage() {
     topPost: null as any
   });
   useEffect(() => {
-    if (!supabase) return;
+    if (!supabase || !user) return;
     async function loadData() {
       try {
         const [videosResponse, accountResponse] = await Promise.all([
           supabase
             .from('videos')
             .select('*, metrics_logs(*)')
+            .eq('user_id', user.id)
             .order('posted_at', { ascending: false }),
           supabase
             .from('account_insights')
             .select('*')
+            .eq('user_id', user.id)
             .order('date', { ascending: false })
             .limit(1)
             .single(),
@@ -107,7 +111,7 @@ export default function AnalysisPage() {
       }
     }
     loadData();
-  }, [supabase]);
+  }, [supabase, user]);
 
   useEffect(() => {
     const limit = displayCount === "all" ? videos.length : Number(displayCount);

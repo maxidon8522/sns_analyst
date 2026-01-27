@@ -10,7 +10,7 @@ import {
 import { SavesTrendChart } from '@/components/charts/saves-trend-chart';
 import type { ComparisonSeries, TrendPoint } from '@/components/charts/saves-trend-chart';
 
-import { createServerSupabaseClient } from '@/utils/supabase/server';
+import { createServerSupabaseUserClient } from '@/utils/supabase/user';
 import type { Database } from '@/types/database';
 
 type VideoRow = Database['public']['Tables']['videos']['Row'];
@@ -31,12 +31,21 @@ const MAX_COMPARISON_SERIES = 3;
 export default async function VideoDetailPage({
   params,
 }: VideoDetailPageProps) {
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerSupabaseUserClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+
+  if (userError || !user) {
+    notFound();
+  }
 
   const { data: video, error: videoError } = await supabase
     .from('videos')
     .select('*, metrics_logs(*)')
     .eq('id', params.id)
+    .eq('user_id', user.id)
     .maybeSingle();
 
   if (videoError) {
@@ -50,7 +59,8 @@ export default async function VideoDetailPage({
   const { data: comparisonVideos, error: comparisonError } = await supabase
     .from('videos')
     .select('*, metrics_logs(*)')
-    .neq('id', params.id);
+    .neq('id', params.id)
+    .eq('user_id', user.id);
 
   if (comparisonError) {
     throw new Error(comparisonError.message);

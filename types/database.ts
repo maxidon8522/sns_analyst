@@ -71,6 +71,7 @@ export interface Database {
       videos: {
         Row: {
           id: string;
+          user_id: string;
           ig_media_id: string;
           permalink: string | null;
           thumbnail_url: string | null;
@@ -88,6 +89,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          user_id: string;
           ig_media_id: string;
           permalink?: string | null;
           thumbnail_url?: string | null;
@@ -105,6 +107,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          user_id?: string;
           ig_media_id?: string;
           permalink?: string | null;
           thumbnail_url?: string | null;
@@ -126,6 +129,7 @@ export interface Database {
         Row: {
           id: number;
           video_id: string;
+          user_id: string;
           fetched_at: string;
           views: number | null;
           likes: number | null;
@@ -135,6 +139,7 @@ export interface Database {
         Insert: {
           id?: number;
           video_id: string;
+          user_id: string;
           fetched_at?: string;
           views?: number | null;
           likes?: number | null;
@@ -144,6 +149,7 @@ export interface Database {
         Update: {
           id?: number;
           video_id?: string;
+          user_id?: string;
           fetched_at?: string;
           views?: number | null;
           likes?: number | null;
@@ -157,11 +163,18 @@ export interface Database {
             referencedRelation: 'videos';
             referencedColumns: ['id'];
           },
+          {
+            foreignKeyName: 'metrics_logs_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
         ];
       };
       account_insights: {
         Row: {
           id: string;
+          user_id: string;
           date: string;
           followers_count: number | null;
           profile_views: number | null;
@@ -174,6 +187,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          user_id: string;
           date: string;
           followers_count?: number | null;
           profile_views?: number | null;
@@ -186,6 +200,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          user_id?: string;
           date?: string;
           followers_count?: number | null;
           profile_views?: number | null;

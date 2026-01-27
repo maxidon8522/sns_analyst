@@ -1,6 +1,9 @@
 import { redirect } from 'next/navigation';
 import { getPostWithInsights } from '@/lib/instagram';
-import { createServerSupabaseClient } from '@/utils/supabase/server';
+import {
+  createServerSupabaseUserActionClient,
+  createServerSupabaseUserClient,
+} from '@/utils/supabase/user';
 import { AnalysisTagsForm } from '@/components/forms/analysis-tags-form';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,18 +11,39 @@ import { Badge } from '@/components/ui/badge';
 async function saveAnalysisAction(formData: FormData) {
   'use server';
 
-  const supabase = createServerSupabaseClient();
+  const supabase = createServerSupabaseUserActionClient();
+  const {
+    data: { user },
+    error: userError,
+  } = await supabase.auth.getUser();
+  if (userError || !user) {
+    throw new Error('ログインが必要です');
+  }
+
+  const { data: connection, error: connectionError } = await supabase
+    .from('meta_connections')
+    .select('access_token')
+    .eq('user_id', user.id)
+    .eq('provider', 'instagram')
+    .maybeSingle();
+
+  if (connectionError || !connection?.access_token) {
+    throw new Error('Meta連携が必要です');
+  }
   const ig_media_id = formData.get('ig_media_id') as string;
   const rawTags = formData.get('tags') as string;
   const score = formData.get('score');
 
-  const post = await getPostWithInsights(ig_media_id);
+  const post = await getPostWithInsights(ig_media_id, {
+    accessToken: connection.access_token,
+  });
   if (!post) {
     throw new Error('Post not found');
   }
 
   const { error } = await supabase.from('videos').upsert(
     {
+      user_id: user.id,
       ig_media_id: post.id,
       permalink: post.permalink,
       thumbnail_url: post.thumbnail_url || post.media_url,
@@ -30,7 +54,7 @@ async function saveAnalysisAction(formData: FormData) {
       self_score: Number(score),
     },
     {
-      onConflict: 'ig_media_id',
+      onConflict: 'user_id,ig_media_id',
     },
   );
 
@@ -45,6 +69,15 @@ async function saveAnalysisAction(formData: FormData) {
 export default async function NewAnalysisPage(props: {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }) {
+  const supabase = createServerSupabaseUserClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    redirect('/login');
+  }
+
   const searchParams = await props.searchParams;
   const ig_media_id = searchParams.ig_media_id as string;
 
@@ -52,7 +85,26 @@ export default async function NewAnalysisPage(props: {
     redirect('/instagram');
   }
 
-  const post = await getPostWithInsights(ig_media_id);
+  const { data: connection } = await supabase
+    .from('meta_connections')
+    .select('access_token')
+    .eq('user_id', user.id)
+    .eq('provider', 'instagram')
+    .maybeSingle();
+
+  if (!connection?.access_token) {
+    return (
+      <div className="container p-6">
+        <div className="rounded-md bg-amber-50 p-4 text-amber-700">
+          Meta連携が必要です。設定ページから連携してください。
+        </div>
+      </div>
+    );
+  }
+
+  const post = await getPostWithInsights(ig_media_id, {
+    accessToken: connection.access_token,
+  });
 
   if (!post) {
     return (
