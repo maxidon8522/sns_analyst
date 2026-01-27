@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useEffect, useMemo, useState } from "react";
+import { getBrowserSupabaseClient } from "@/utils/supabase/client";
 import { differenceInDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -22,11 +22,6 @@ import { LongTermChart } from "@/components/analysis/long-term-chart";
 import { PendingReviewList } from "@/components/dashboard/pending-review-list";
 import { TrendingUp, Users, Bookmark, Video } from "lucide-react";
 import type { Database } from "@/types/database";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type MetricKey = "views" | "saves" | "likes" | "comments";
 type AccountInsightsRow = Database["public"]["Tables"]["account_insights"]["Row"];
@@ -51,6 +46,7 @@ const createLongTermBaseline = (range: number) =>
   Array.from({ length: range + 1 }, (_, day) => ({ day }));
 
 export default function AnalysisPage() {
+  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
@@ -110,7 +106,7 @@ export default function AnalysisPage() {
       }
     }
     loadData();
-  }, []);
+  }, [supabase]);
 
   useEffect(() => {
     const limit = displayCount === "all" ? videos.length : Number(displayCount);

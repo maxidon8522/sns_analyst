@@ -1,16 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { useEffect, useMemo, useState } from "react";
+import { getBrowserSupabaseClient } from "@/utils/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type Video = {
   id: string;
@@ -22,6 +17,7 @@ type Video = {
 };
 
 export function PendingReviewList() {
+  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
   const [videos, setVideos] = useState<Video[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -35,7 +31,7 @@ export function PendingReviewList() {
 
   useEffect(() => {
     void fetchAllVideos();
-  }, []);
+  }, [supabase]);
 
   const fetchAllVideos = async () => {
     const { data } = await supabase

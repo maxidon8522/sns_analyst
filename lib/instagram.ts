@@ -1,5 +1,5 @@
-const ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
-const USER_ID = process.env.INSTAGRAM_USER_ID;
+const DEFAULT_ACCESS_TOKEN = process.env.INSTAGRAM_ACCESS_TOKEN;
+const DEFAULT_USER_ID = process.env.INSTAGRAM_USER_ID;
 const API_VERSION = 'v19.0';
 const BASE_URL = `https://graph.facebook.com/${API_VERSION}`;
 
@@ -39,15 +39,29 @@ export interface AccountInsights {
   };
 }
 
-export const getInstagramPosts = async (): Promise<InstagramMedia[]> => {
-  if (!ACCESS_TOKEN || !USER_ID) {
+const resolveAccessToken = (accessToken?: string): string | undefined =>
+  accessToken || DEFAULT_ACCESS_TOKEN;
+
+const resolveUserId = (userId?: string): string | undefined =>
+  userId || DEFAULT_USER_ID;
+
+export const getInstagramPosts = async (options?: {
+  accessToken?: string;
+  userId?: string;
+  limit?: number;
+}): Promise<InstagramMedia[]> => {
+  const accessToken = resolveAccessToken(options?.accessToken);
+  const userId = resolveUserId(options?.userId);
+
+  if (!accessToken || !userId) {
     console.error('❌ API Key missing');
     return [];
   }
 
   const fields =
     'id,caption,media_type,timestamp,like_count,comments_count,permalink,media_url,thumbnail_url';
-  const url = `${BASE_URL}/${USER_ID}/media?fields=${fields}&access_token=${ACCESS_TOKEN}&limit=20`;
+  const limit = options?.limit ?? 20;
+  const url = `${BASE_URL}/${userId}/media?fields=${fields}&access_token=${accessToken}&limit=${limit}`;
 
   console.log('Fetching URL:', url);
 
@@ -368,15 +382,19 @@ const getLatestNonEmptyValuePayload = (entry: any): unknown => {
 const getLatestNumberValue = (entry: any): number =>
   safeNumber(getLatestValuePayload(entry));
 
-export async function getMediaInsights(mediaId: string) {
-  if (!ACCESS_TOKEN) return null;
+export async function getMediaInsights(
+  mediaId: string,
+  options?: { accessToken?: string },
+) {
+  const accessToken = resolveAccessToken(options?.accessToken);
+  if (!accessToken) return null;
 
   let likes = 0;
   let comments = 0;
   let insightsOk = false;
 
   try {
-    const mediaUrl = `${BASE_URL}/${mediaId}?fields=like_count,comments_count&access_token=${ACCESS_TOKEN}`;
+    const mediaUrl = `${BASE_URL}/${mediaId}?fields=like_count,comments_count&access_token=${accessToken}`;
     const mediaRes = await fetch(mediaUrl, { cache: 'no-store' });
     if (mediaRes.ok) {
       const mediaData = await mediaRes.json();
@@ -390,7 +408,7 @@ export async function getMediaInsights(mediaId: string) {
   }
 
   const metrics = 'views,reach,saved';
-  const insightsUrl = `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${ACCESS_TOKEN}`;
+  const insightsUrl = `${BASE_URL}/${mediaId}/insights?metric=${metrics}&access_token=${accessToken}`;
 
   let views = 0;
   let reach = 0;
@@ -441,8 +459,13 @@ export async function getMediaInsights(mediaId: string) {
   };
 }
 
-export const getAccountInsights = async (): Promise<AccountInsights | null> => {
-  if (!ACCESS_TOKEN || !USER_ID) return null;
+export const getAccountInsights = async (options?: {
+  accessToken?: string;
+  userId?: string;
+}): Promise<AccountInsights | null> => {
+  const accessToken = resolveAccessToken(options?.accessToken);
+  const userId = resolveUserId(options?.userId);
+  if (!accessToken || !userId) return null;
 
   const { since, until } = getDayRange();
   const onlineRange = getRangeDays(30);
@@ -458,25 +481,25 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
     'country',
   ];
   const buildDemographicsUrl = (breakdown: string) =>
-    `${BASE_URL}/${USER_ID}/insights?metric=${demographicsMetrics}` +
+    `${BASE_URL}/${userId}/insights?metric=${demographicsMetrics}` +
     `&period=lifetime&breakdown=${breakdown}&metric_type=total_value` +
-    `&access_token=${ACCESS_TOKEN}`;
+    `&access_token=${accessToken}`;
 
   const dailyTotalsMetrics = 'profile_views,website_clicks';
   const dailyTotalsUrl =
-    `${BASE_URL}/${USER_ID}/insights?metric=${dailyTotalsMetrics}` +
+    `${BASE_URL}/${userId}/insights?metric=${dailyTotalsMetrics}` +
     `&period=day&metric_type=total_value&since=${since}&until=${until}` +
-    `&access_token=${ACCESS_TOKEN}`;
+    `&access_token=${accessToken}`;
 
   const dailySeriesMetrics = 'reach,follower_count';
   const dailySeriesWithRangeUrl =
-    `${BASE_URL}/${USER_ID}/insights?metric=${dailySeriesMetrics}` +
-    `&period=day&since=${since}&until=${until}&access_token=${ACCESS_TOKEN}`;
+    `${BASE_URL}/${userId}/insights?metric=${dailySeriesMetrics}` +
+    `&period=day&since=${since}&until=${until}&access_token=${accessToken}`;
 
   const onlineFollowersUrl =
-    `${BASE_URL}/${USER_ID}/insights?metric=online_followers` +
+    `${BASE_URL}/${userId}/insights?metric=online_followers` +
     `&period=lifetime&since=${onlineRange.since}&until=${onlineRange.until}` +
-    `&access_token=${ACCESS_TOKEN}`;
+    `&access_token=${accessToken}`;
 
   const [totalsResponse, seriesResponse, onlineFollowersResponse] = await Promise.all([
     fetchInsights(dailyTotalsUrl),
@@ -653,19 +676,21 @@ export const getAccountInsights = async (): Promise<AccountInsights | null> => {
 
 export const getPostWithInsights = async (
   mediaId: string,
+  options?: { accessToken?: string },
 ): Promise<InstagramMedia | null> => {
-  if (!ACCESS_TOKEN) return null;
+  const accessToken = resolveAccessToken(options?.accessToken);
+  if (!accessToken) return null;
 
   const fields =
     'id,caption,media_type,timestamp,like_count,comments_count,permalink,media_url,thumbnail_url';
-  const url = `${BASE_URL}/${mediaId}?fields=${fields}&access_token=${ACCESS_TOKEN}`;
+  const url = `${BASE_URL}/${mediaId}?fields=${fields}&access_token=${accessToken}`;
 
   try {
     const res = await fetch(url, { cache: 'no-store' });
     if (!res.ok) return null;
 
   const post = await res.json();
-  const insights = await getMediaInsights(mediaId);
+  const insights = await getMediaInsights(mediaId, { accessToken });
 
   const fallbackInsights = {
     views: 0,

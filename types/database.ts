@@ -198,6 +198,61 @@ export interface Database {
         };
         Relationships: [];
       };
+      meta_connections: {
+        Row: {
+          id: string;
+          user_id: string;
+          provider: string;
+          access_token: string;
+          token_type: string | null;
+          expires_at: string | null;
+          scopes: string[] | null;
+          meta_user_id: string | null;
+          instagram_user_id: string | null;
+          page_id: string | null;
+          page_name: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          provider: string;
+          access_token: string;
+          token_type?: string | null;
+          expires_at?: string | null;
+          scopes?: string[] | null;
+          meta_user_id?: string | null;
+          instagram_user_id?: string | null;
+          page_id?: string | null;
+          page_name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          provider?: string;
+          access_token?: string;
+          token_type?: string | null;
+          expires_at?: string | null;
+          scopes?: string[] | null;
+          meta_user_id?: string | null;
+          instagram_user_id?: string | null;
+          page_id?: string | null;
+          page_name?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'meta_connections_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'users';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: never;
     Functions: never;

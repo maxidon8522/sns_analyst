@@ -5,6 +5,7 @@ import Link from "next/link";
 import { BarChart3 } from "lucide-react";
 
 import { InstagramMedia } from "@/lib/instagram";
+import { useAuth } from "@/components/auth/auth-provider";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -18,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 
 export default function InstagramPage() {
+  const { session } = useAuth();
   const [posts, setPosts] = useState<InstagramMedia[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -26,10 +28,17 @@ export default function InstagramPage() {
     async function loadPosts() {
       try {
         console.log("Fetching posts from API...");
-        const res = await fetch("/api/instagram/fetch-posts");
+        const res = await fetch("/api/instagram/fetch-posts", {
+          headers: session?.access_token
+            ? { Authorization: `Bearer ${session.access_token}` }
+            : undefined,
+        });
 
         if (!res.ok) {
-          throw new Error(`API Error: ${res.status}`);
+          const body = await res.json().catch(() => null);
+          const message =
+            body?.error || `API Error: ${res.status} ${res.statusText}`;
+          throw new Error(message);
         }
 
         const data = await res.json();
@@ -43,16 +52,18 @@ export default function InstagramPage() {
           console.warn("Unexpected data format:", data);
           setPosts([]);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
-        setError("データの取得に失敗しました。");
+        setError(err?.message ?? "データの取得に失敗しました。");
       } finally {
         setLoading(false);
       }
     }
 
-    loadPosts();
-  }, []);
+    if (session?.access_token) {
+      loadPosts();
+    }
+  }, [session?.access_token]);
 
   if (loading) {
     return (
@@ -91,7 +102,15 @@ export default function InstagramPage() {
       {error && (
         <Alert variant="destructive">
           <AlertTitle>エラー</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
+          <AlertDescription>
+            {error}
+            {error.includes("Meta連携") && (
+              <>
+                <br />
+                設定ページでMeta連携を完了してください。
+              </>
+            )}
+          </AlertDescription>
         </Alert>
       )}
 

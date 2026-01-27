@@ -1,9 +1,22 @@
+"use client";
+
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { BarChart3, Instagram, LogIn, LogOut, Settings } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
-import { BarChart3, Instagram, PlusCircle } from "lucide-react";
+import { useAuth } from "@/components/auth/auth-provider";
 
 export function Header() {
+  const { user, loading, signOut } = useAuth();
+  const router = useRouter();
+
+  const handleSignOut = async () => {
+    await signOut();
+    router.push("/login");
+  };
+
   return (
     <header className="sticky top-0 z-50 border-b border-slate-100 bg-white">
       <div className="mx-auto flex h-16 w-full max-w-7xl items-center justify-between px-6 md:px-10">
@@ -38,11 +51,32 @@ export function Header() {
             </Link>
           </Button>
 
-          {/* 将来的な機能拡張用 */}
-          {/* <Button variant="default" size="sm" className="gap-2 ml-2">
-            <PlusCircle className="w-4 h-4" />
-            <span className="hidden md:inline">手動追加</span>
-          </Button> */}
+          {!loading && user ? (
+            <>
+              <Button variant="ghost" asChild className="gap-2">
+                <Link href="/settings">
+                  <Settings className="w-4 h-4" />
+                  <span className="hidden md:inline">設定</span>
+                </Link>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={handleSignOut}
+              >
+                <LogOut className="w-4 h-4" />
+                <span className="hidden md:inline">ログアウト</span>
+              </Button>
+            </>
+          ) : (
+            <Button variant="default" size="sm" asChild className="gap-2">
+              <Link href="/login">
+                <LogIn className="w-4 h-4" />
+                <span className="hidden md:inline">ログイン</span>
+              </Link>
+            </Button>
+          )}
         </nav>
       </div>
     </header>
