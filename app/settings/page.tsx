@@ -14,6 +14,8 @@ import {
 } from "@/components/ui/card";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 type MetaConnection = {
   provider: string;
