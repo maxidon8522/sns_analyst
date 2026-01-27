@@ -31,6 +31,10 @@ export default function SettingsPage() {
   const [connection, setConnection] = useState<MetaConnection | null>(null);
   const [connectionLoading, setConnectionLoading] = useState(true);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [manualAccessToken, setManualAccessToken] = useState("");
+  const [manualInstagramUserId, setManualInstagramUserId] = useState("");
+  const [manualPageName, setManualPageName] = useState("");
+  const [manualSaving, setManualSaving] = useState(false);
 
   if (loading) {
     return (
@@ -121,6 +125,39 @@ export default function SettingsPage() {
   const metaStatus = searchParams.get("meta");
   const metaReason = searchParams.get("reason");
 
+  const handleManualSave = async () => {
+    if (!session?.access_token) return;
+    setManualSaving(true);
+    setConnectionError(null);
+
+    try {
+      const res = await fetch("/api/meta/connection/manual", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          access_token: manualAccessToken.trim(),
+          instagram_user_id: manualInstagramUserId.trim(),
+          page_name: manualPageName.trim() || null,
+        }),
+      });
+      const body = await res.json().catch(() => null);
+      if (!res.ok) {
+        throw new Error(body?.error ?? "保存に失敗しました。");
+      }
+      setManualAccessToken("");
+      setManualInstagramUserId("");
+      setManualPageName("");
+      await fetchConnection();
+    } catch (err: any) {
+      setConnectionError(err?.message ?? "保存に失敗しました。");
+    } finally {
+      setManualSaving(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -201,6 +238,55 @@ export default function SettingsPage() {
           ) : (
             <p>まだ連携がありません。接続して開始してください。</p>
           )}
+
+          <div className="mt-6 space-y-3 rounded-md border border-slate-100 bg-slate-50 p-4">
+            <p className="text-sm font-semibold text-slate-700">
+              手動でアクセストークンを登録
+            </p>
+            <div className="space-y-2">
+              <Label htmlFor="manual-access-token">アクセストークン</Label>
+              <Input
+                id="manual-access-token"
+                type="text"
+                value={manualAccessToken}
+                onChange={(event) => setManualAccessToken(event.target.value)}
+                placeholder="Instagram Graph API access token"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-instagram-user-id">InstagramユーザーID</Label>
+              <Input
+                id="manual-instagram-user-id"
+                type="text"
+                value={manualInstagramUserId}
+                onChange={(event) => setManualInstagramUserId(event.target.value)}
+                placeholder="例: 1784xxxxxxxxxxxx"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manual-page-name">ページ名（任意）</Label>
+              <Input
+                id="manual-page-name"
+                type="text"
+                value={manualPageName}
+                onChange={(event) => setManualPageName(event.target.value)}
+                placeholder="表示用（任意）"
+              />
+            </div>
+            <Button
+              onClick={handleManualSave}
+              disabled={
+                manualSaving ||
+                !manualAccessToken.trim() ||
+                !manualInstagramUserId.trim()
+              }
+            >
+              {manualSaving ? "保存中..." : "保存する"}
+            </Button>
+            <p className="text-xs text-slate-400">
+              ※ トークンは各ユーザーで管理されます。
+            </p>
+          </div>
         </CardContent>
         <CardFooter>
           {connection ? (
