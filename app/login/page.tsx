@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -15,13 +15,13 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { getBrowserSupabaseClient } from "@/utils/supabase/client";
+import { useBrowserSupabaseClient } from "@/hooks/use-supabase-client";
 
 type Mode = "signin" | "signup";
 
 export default function LoginPage() {
   const router = useRouter();
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
+  const supabase = useBrowserSupabaseClient();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +36,10 @@ export default function LoginPage() {
     setStatus(null);
 
     try {
+      if (!supabase) {
+        setStatus({ type: "error", text: "読み込み中です。少し待ってください。" });
+        return;
+      }
       if (mode === "signin") {
         const { error } = await supabase.auth.signInWithPassword({
           email,
@@ -115,7 +119,11 @@ export default function LoginPage() {
                 minLength={8}
               />
             </div>
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button
+              type="submit"
+              className="w-full"
+              disabled={loading || !supabase}
+            >
               {loading ? "処理中..." : mode === "signin" ? "ログイン" : "新規登録"}
             </Button>
           </form>

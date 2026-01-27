@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { getBrowserSupabaseClient } from "@/utils/supabase/client";
+import { useEffect, useState } from "react";
+import { useBrowserSupabaseClient } from "@/hooks/use-supabase-client";
 import { differenceInDays } from "date-fns";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -46,7 +46,7 @@ const createLongTermBaseline = (range: number) =>
   Array.from({ length: range + 1 }, (_, day) => ({ day }));
 
 export default function AnalysisPage() {
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
+  const supabase = useBrowserSupabaseClient();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [videoLegends, setVideoLegends] = useState<any[]>([]);
@@ -65,6 +65,7 @@ export default function AnalysisPage() {
     topPost: null as any
   });
   useEffect(() => {
+    if (!supabase) return;
     async function loadData() {
       try {
         const [videosResponse, accountResponse] = await Promise.all([

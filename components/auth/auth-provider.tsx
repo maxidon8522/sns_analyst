@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import type { Session, User } from "@supabase/supabase-js";
 
-import { getBrowserSupabaseClient } from "@/utils/supabase/client";
+import { useBrowserSupabaseClient } from "@/hooks/use-supabase-client";
 
 type AuthContextValue = {
   session: Session | null;
@@ -16,11 +16,12 @@ type AuthContextValue = {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const supabase = useMemo(() => getBrowserSupabaseClient(), []);
+  const supabase = useBrowserSupabaseClient();
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (!supabase) return;
     let mounted = true;
 
     const loadSession = async () => {
@@ -56,12 +57,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user: session?.user ?? null,
       loading,
       signOut: async () => {
+        if (!supabase) return;
         const { error } = await supabase.auth.signOut();
         if (error) {
           console.warn("Supabase sign out error:", error.message);
         }
       },
       refresh: async () => {
+        if (!supabase) return;
         const { data, error } = await supabase.auth.getSession();
         if (error) {
           console.warn("Supabase session refresh error:", error.message);
