@@ -14,6 +14,19 @@ export async function POST(request: NextRequest) {
   const ig_media_id = body?.ig_media_id as string | undefined;
   const tags = body?.tags;
   const score = body?.score;
+  const postInput = body?.post;
+
+  const postFromBody =
+    postInput && typeof postInput === "object"
+      ? {
+          id: (postInput as any).id as string | undefined,
+          permalink: (postInput as any).permalink as string | null | undefined,
+          thumbnail_url: (postInput as any).thumbnail_url as string | null | undefined,
+          media_url: (postInput as any).media_url as string | null | undefined,
+          caption: (postInput as any).caption as string | null | undefined,
+          timestamp: (postInput as any).timestamp as string | null | undefined,
+        }
+      : null;
 
   if (!ig_media_id || !tags) {
     return NextResponse.json(
@@ -34,35 +47,33 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: connectionError.message }, { status: 500 });
   }
 
-  if (!connection?.access_token) {
-    return NextResponse.json(
-      { error: "Meta連携が必要です。" },
-      { status: 400 },
-    );
+  let post = null as Awaited<ReturnType<typeof getPostWithInsights>> | null;
+  if (connection?.access_token) {
+    post = await getPostWithInsights(ig_media_id, {
+      accessToken: connection.access_token,
+    });
   }
 
-  const post = await getPostWithInsights(ig_media_id, {
-    accessToken: connection.access_token,
-  });
+  const payload = {
+    user_id: user.id,
+    ig_media_id,
+    analysis_tags: tags,
+    self_score: Number(score),
+    permalink: post?.permalink ?? postFromBody?.permalink ?? null,
+    thumbnail_url:
+      post?.thumbnail_url ??
+      post?.media_url ??
+      postFromBody?.thumbnail_url ??
+      postFromBody?.media_url ??
+      null,
+    media_url: post?.media_url ?? postFromBody?.media_url ?? null,
+    caption: post?.caption ?? postFromBody?.caption ?? null,
+    posted_at: post?.timestamp ?? postFromBody?.timestamp ?? null,
+  };
 
-  if (!post) {
-    return NextResponse.json({ error: "Post not found" }, { status: 404 });
-  }
-
-  const { error } = await supabase.from("videos").upsert(
-    {
-      user_id: user.id,
-      ig_media_id: post.id,
-      permalink: post.permalink,
-      thumbnail_url: post.thumbnail_url || post.media_url,
-      media_url: post.media_url,
-      caption: post.caption,
-      posted_at: post.timestamp,
-      analysis_tags: tags,
-      self_score: Number(score),
-    },
-    { onConflict: "user_id,ig_media_id" },
-  );
+  const { error } = await supabase
+    .from("videos")
+    .upsert(payload, { onConflict: "user_id,ig_media_id" });
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

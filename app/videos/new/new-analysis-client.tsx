@@ -14,6 +14,14 @@ type AnalysisSubmitPayload = {
   ig_media_id: string;
   tags: Record<string, unknown>;
   score: number;
+  post?: {
+    id?: string;
+    permalink?: string | null;
+    thumbnail_url?: string | null;
+    media_url?: string | null;
+    caption?: string | null;
+    timestamp?: string | null;
+  };
 };
 
 type NewAnalysisClientProps = {
@@ -25,7 +33,8 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
   const { session } = useAuth();
   const [post, setPost] = useState<InstagramMedia | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -38,6 +47,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
     const loadPost = async () => {
       try {
         setLoading(true);
+        setLoadError(null);
         const res = await fetch(`/api/instagram/fetch-posts?media_id=${igMediaId}`, {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
@@ -49,7 +59,10 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
         }
         setPost(body);
       } catch (err: any) {
-        setError(err?.message ?? "投稿の取得に失敗しました。");
+        setLoadError(
+          err?.message ??
+            "投稿の取得に失敗しました。分析は続行できます。",
+        );
       } finally {
         setLoading(false);
       }
@@ -61,7 +74,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
   const handleSubmit = async (values: any) => {
     if (!session?.access_token) return;
     setSaving(true);
-    setError(null);
+    setSaveError(null);
 
     try {
       const { self_score, ...analysisTags } = values;
@@ -69,6 +82,16 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
         ig_media_id: igMediaId,
         tags: analysisTags,
         score: Number(self_score ?? 0),
+        post: post
+          ? {
+              id: post.id,
+              permalink: post.permalink,
+              thumbnail_url: post.thumbnail_url ?? null,
+              media_url: post.media_url ?? null,
+              caption: post.caption ?? null,
+              timestamp: post.timestamp ?? null,
+            }
+          : undefined,
       };
 
       const res = await fetch("/api/videos/save-analysis", {
@@ -85,7 +108,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
       }
       router.push("/instagram?created=true");
     } catch (err: any) {
-      setError(err?.message ?? "保存に失敗しました。");
+      setSaveError(err?.message ?? "保存に失敗しました。");
     } finally {
       setSaving(false);
     }
@@ -101,31 +124,23 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
     );
   }
 
-  if (error) {
-    return (
-      <div className="container p-6">
-        <Alert variant="destructive">
-          <AlertTitle>エラー</AlertTitle>
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
-  if (!post) {
-    return (
-      <div className="container p-6">
-        <Alert variant="destructive">
-          <AlertTitle>投稿が見つかりません</AlertTitle>
-          <AlertDescription>投稿情報が取得できませんでした。</AlertDescription>
-        </Alert>
-      </div>
-    );
-  }
-
   return (
     <div className="container mx-auto max-w-4xl p-6">
       <h1 className="mb-6 text-2xl font-bold">動画の分析・タグ付け</h1>
+
+      {loadError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>投稿情報の取得に失敗しました</AlertTitle>
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+      )}
+
+      {saveError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertTitle>保存エラー</AlertTitle>
+          <AlertDescription>{saveError}</AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid grid-cols-1 gap-8 md:grid-cols-2">
         <div>
@@ -136,31 +151,44 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-black/5">
-                <div className="flex flex-col items-center text-gray-400">
-                  <span className="mb-2 text-4xl">
-                    {post.media_type === "VIDEO" || post.media_type === "REELS"
-                      ? "🎥"
-                      : "📷"}
-                  </span>
-                  <span className="text-xs">{post.media_type}</span>
-                </div>
-              </div>
+              {post ? (
+                <>
+                  <div className="relative flex aspect-video items-center justify-center overflow-hidden rounded-md bg-black/5">
+                    <div className="flex flex-col items-center text-gray-400">
+                      <span className="mb-2 text-4xl">
+                        {post.media_type === "VIDEO" ||
+                        post.media_type === "REELS"
+                          ? "🎥"
+                          : "📷"}
+                      </span>
+                      <span className="text-xs">{post.media_type}</span>
+                    </div>
+                  </div>
 
-              <div className="space-y-2">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="outline">❤️ {post.like_count}</Badge>
-                  <Badge variant="outline">💬 {post.comments_count}</Badge>
-                  <Badge variant="outline">👀 {post.insights?.views ?? "-"}</Badge>
-                  <Badge variant="outline">🔖 {post.insights?.saved ?? "-"}</Badge>
-                </div>
-                <p className="line-clamp-4 rounded-md bg-gray-50 p-3 text-sm text-gray-600">
-                  {post.caption}
-                </p>
-                <div className="text-right text-xs text-muted-foreground">
-                  投稿日: {new Date(post.timestamp).toLocaleDateString()}
-                </div>
-              </div>
+                  <div className="space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Badge variant="outline">❤️ {post.like_count}</Badge>
+                      <Badge variant="outline">💬 {post.comments_count}</Badge>
+                      <Badge variant="outline">👀 {post.insights?.views ?? "-"}</Badge>
+                      <Badge variant="outline">🔖 {post.insights?.saved ?? "-"}</Badge>
+                    </div>
+                    <p className="line-clamp-4 rounded-md bg-gray-50 p-3 text-sm text-gray-600">
+                      {post.caption}
+                    </p>
+                    <div className="text-right text-xs text-muted-foreground">
+                      投稿日: {new Date(post.timestamp).toLocaleDateString()}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <Alert>
+                  <AlertTitle>投稿情報が取得できませんでした</AlertTitle>
+                  <AlertDescription>
+                    取得に失敗したため、IDのみで分析を続行します。<br />
+                    対象ID: {igMediaId}
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
           </Card>
         </div>
