@@ -1,69 +1,84 @@
-import { notFound } from 'next/navigation';
+"use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Alert,
-  AlertDescription,
-  AlertTitle,
-} from '@/components/ui/alert';
+import { useEffect, useMemo, useState } from "react";
+import { useParams } from "next/navigation";
 
-import { SavesTrendChart } from '@/components/charts/saves-trend-chart';
-import type { ComparisonSeries, TrendPoint } from '@/components/charts/saves-trend-chart';
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { SavesTrendChart } from "@/components/charts/saves-trend-chart";
+import type {
+  ComparisonSeries,
+  TrendPoint,
+} from "@/components/charts/saves-trend-chart";
+import type { Database } from "@/types/database";
+import { useAuth } from "@/components/auth/auth-provider";
 
-import { createServerSupabaseUserClient } from '@/utils/supabase/user';
-import type { Database } from '@/types/database';
-
-type VideoRow = Database['public']['Tables']['videos']['Row'];
-type MetricsLogRow = Database['public']['Tables']['metrics_logs']['Row'];
+type VideoRow = Database["public"]["Tables"]["videos"]["Row"];
+type MetricsLogRow = Database["public"]["Tables"]["metrics_logs"]["Row"];
 
 type VideoWithMetrics = VideoRow & {
   metrics_logs: MetricsLogRow[];
 };
 
-type VideoDetailPageProps = {
-  params: {
-    id: string;
-  };
-};
-
 const MAX_COMPARISON_SERIES = 3;
 
-export default async function VideoDetailPage({
-  params,
-}: VideoDetailPageProps) {
-  const supabase = createServerSupabaseUserClient();
-  const {
-    data: { user },
-    error: userError,
-  } = await supabase.auth.getUser();
+export default function VideoDetailPage() {
+  const params = useParams<{ id: string }>();
+  const { session } = useAuth();
+  const [video, setVideo] = useState<VideoWithMetrics | null>(null);
+  const [comparisonVideos, setComparisonVideos] = useState<VideoWithMetrics[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (userError || !user) {
-    notFound();
+  const videoId = useMemo(() => params?.id, [params]);
+
+  useEffect(() => {
+    if (!videoId || !session?.access_token) return;
+
+    const load = async () => {
+      try {
+        setLoading(true);
+        const res = await fetch(`/api/videos/${videoId}`, {
+          headers: {
+            Authorization: `Bearer ${session.access_token}`,
+          },
+        });
+        const body = await res.json().catch(() => null);
+        if (!res.ok) {
+          throw new Error(body?.error ?? "データ取得に失敗しました。");
+        }
+        setVideo(body?.video ?? null);
+        setComparisonVideos(body?.comparisonVideos ?? []);
+      } catch (err: any) {
+        setError(err?.message ?? "データ取得に失敗しました。");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    void load();
+  }, [videoId, session?.access_token]);
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <Alert>
+          <AlertTitle>読み込み中</AlertTitle>
+          <AlertDescription>データを取得しています。</AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
-  const { data: video, error: videoError } = await supabase
-    .from('videos')
-    .select('*, metrics_logs(*)')
-    .eq('id', params.id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-
-  if (videoError) {
-    throw new Error(videoError.message);
-  }
-
-  if (!video) {
-    notFound();
-  }
-
-  const { data: comparisonVideos, error: comparisonError } = await supabase
-    .from('videos')
-    .select('*, metrics_logs(*)')
-    .neq('id', params.id)
-    .eq('user_id', user.id);
-
-  if (comparisonError) {
-    throw new Error(comparisonError.message);
+  if (error || !video) {
+    return (
+      <div className="space-y-6">
+        <Alert variant="destructive">
+          <AlertTitle>エラー</AlertTitle>
+          <AlertDescription>{error ?? "動画が見つかりませんでした。"}</AlertDescription>
+        </Alert>
+      </div>
+    );
   }
 
   const mainSeries = buildTrendSeries(video);
@@ -77,7 +92,7 @@ export default async function VideoDetailPage({
       <header className="space-y-1">
         <p className="text-sm text-muted-foreground">Video Detail</p>
         <h1 className="text-2xl font-semibold">
-          {video.caption ?? 'キャプション未設定'}
+          {video.caption ?? "キャプション未設定"}
         </h1>
         {video.permalink ? (
           <a
@@ -127,7 +142,7 @@ const buildTrendSeries = (video: VideoWithMetrics): TrendPoint[] => {
   }
 
   return video.metrics_logs
-    .filter((log) => typeof log.saves === 'number' && log.fetched_at)
+    .filter((log) => typeof log.saves === "number" && log.fetched_at)
     .map((log) => ({
       hour: calculateElapsedHours(postedAt, new Date(log.fetched_at)),
       saves: log.saves ?? 0,
@@ -152,9 +167,7 @@ const buildComparisonSeries = (
     })
     .filter((entry) => entry.series.length > 0);
 
-  const top = scored
-    .sort((a, b) => b.maxSaves - a.maxSaves)
-    .slice(0, limit);
+  const top = scored.sort((a, b) => b.maxSaves - a.maxSaves).slice(0, limit);
 
   return top.map((entry) => ({
     label: entry.video.caption ?? entry.video.id,
