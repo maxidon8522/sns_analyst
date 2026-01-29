@@ -1,5 +1,7 @@
 import NewAnalysisClient from "./new-analysis-client";
 
+export const dynamic = "force-dynamic";
+
 type PageProps = {
   searchParams?: {
     ig_media_id?: string | string[];
