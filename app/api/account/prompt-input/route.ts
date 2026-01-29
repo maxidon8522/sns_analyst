@@ -54,16 +54,45 @@ export async function POST(request: NextRequest) {
   const windowStartIso = windowStart.toISOString();
   const windowStartDate = windowStart.toISOString().slice(0, 10);
 
-  const { data: videos, error: videosError } = await supabase
+  let videos: Database["public"]["Tables"]["videos"]["Row"][] = [];
+  let manualMetricsMissing = false;
+  const videoSelectWithManual =
+    "id, user_id, ig_media_id, caption, posted_at, analysis_tags, self_score, reach, shares, profile_visits, follows, manual_input_done";
+  const videoSelectBase =
+    "id, user_id, ig_media_id, caption, posted_at, analysis_tags, self_score";
+
+  const { data: videoData, error: videosError } = await supabase
     .from("videos")
-    .select(
-      "id, user_id, ig_media_id, caption, posted_at, analysis_tags, self_score, reach, shares, profile_visits, follows, manual_input_done",
-    )
+    .select(videoSelectWithManual)
     .eq("user_id", user.id)
     .gte("posted_at", windowStartIso);
 
   if (videosError) {
-    return NextResponse.json({ error: videosError.message }, { status: 500 });
+    if (videosError.message?.includes("does not exist")) {
+      manualMetricsMissing = true;
+      const { data: fallbackVideos, error: fallbackError } = await supabase
+        .from("videos")
+        .select(videoSelectBase)
+        .eq("user_id", user.id)
+        .gte("posted_at", windowStartIso);
+
+      if (fallbackError) {
+        return NextResponse.json({ error: fallbackError.message }, { status: 500 });
+      }
+
+      videos = (fallbackVideos ?? []).map((video) => ({
+        ...video,
+        reach: null,
+        shares: null,
+        profile_visits: null,
+        follows: null,
+        manual_input_done: null,
+      })) as Database["public"]["Tables"]["videos"]["Row"][];
+    } else {
+      return NextResponse.json({ error: videosError.message }, { status: 500 });
+    }
+  } else {
+    videos = videoData ?? [];
   }
 
   const videoIds = (videos ?? []).map((video) => video.id);
@@ -108,6 +137,11 @@ export async function POST(request: NextRequest) {
       accountInsights: accountInsights ?? [],
     },
   );
+  if (manualMetricsMissing) {
+    accountInputJson.data_warnings.push(
+      "videos の手入力指標カラム（reach/shares/profile_visits/follows）がDBに存在しません。",
+    );
+  }
 
   const promptText = buildAccountPromptText(accountInputJson);
 
