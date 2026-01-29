@@ -31,6 +31,7 @@ type NewAnalysisClientProps = {
 export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps) {
   const router = useRouter();
   const { session } = useAuth();
+  const [resolvedIgMediaId, setResolvedIgMediaId] = useState(igMediaId);
   const [post, setPost] = useState<InstagramMedia | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -38,8 +39,22 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (!igMediaId) {
-      router.replace("/instagram");
+    if (igMediaId) {
+      setResolvedIgMediaId(igMediaId);
+      return;
+    }
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const fallbackId = params.get("ig_media_id") ?? "";
+    if (fallbackId && fallbackId !== resolvedIgMediaId) {
+      setResolvedIgMediaId(fallbackId);
+    }
+  }, [igMediaId, resolvedIgMediaId]);
+
+  useEffect(() => {
+    if (!resolvedIgMediaId) {
+      setLoading(false);
+      setLoadError("ig_media_id が見つかりませんでした。");
       return;
     }
     if (!session?.access_token) return;
@@ -48,7 +63,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
       try {
         setLoading(true);
         setLoadError(null);
-        const res = await fetch(`/api/instagram/fetch-posts?media_id=${igMediaId}`, {
+        const res = await fetch(`/api/instagram/fetch-posts?media_id=${resolvedIgMediaId}`, {
           headers: {
             Authorization: `Bearer ${session.access_token}`,
           },
@@ -60,8 +75,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
         setPost(body);
       } catch (err: any) {
         setLoadError(
-          err?.message ??
-            "投稿の取得に失敗しました。分析は続行できます。",
+          err?.message ?? "投稿の取得に失敗しました。分析は続行できます。",
         );
       } finally {
         setLoading(false);
@@ -69,7 +83,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
     };
 
     void loadPost();
-  }, [igMediaId, router, session?.access_token]);
+  }, [resolvedIgMediaId, session?.access_token]);
 
   const handleSubmit = async (values: any) => {
     if (!session?.access_token) return;
@@ -79,7 +93,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
     try {
       const { self_score, ...analysisTags } = values;
       const payload: AnalysisSubmitPayload = {
-        ig_media_id: igMediaId,
+        ig_media_id: resolvedIgMediaId,
         tags: analysisTags,
         score: Number(self_score ?? 0),
         post: post
@@ -185,7 +199,7 @@ export default function NewAnalysisClient({ igMediaId }: NewAnalysisClientProps)
                   <AlertTitle>投稿情報が取得できませんでした</AlertTitle>
                   <AlertDescription>
                     取得に失敗したため、IDのみで分析を続行します。<br />
-                    対象ID: {igMediaId}
+                    対象ID: {resolvedIgMediaId || "不明"}
                   </AlertDescription>
                 </Alert>
               )}
