@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { BarChart3, Instagram, LogIn, LogOut, Settings } from "lucide-react";
+import { BarChart3, Instagram, LogIn, LogOut, Settings, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -48,6 +48,13 @@ export function Header() {
             <Link href="/analysis">
               <BarChart3 className="w-4 h-4" />
               <span className="hidden md:inline">分析レポート</span>
+            </Link>
+          </Button>
+
+          <Button variant="ghost" asChild className="gap-2">
+            <Link href="/account-advisor">
+              <Sparkles className="w-4 h-4" />
+              <span className="hidden md:inline">Advisor Prompt</span>
             </Link>
           </Button>
 
